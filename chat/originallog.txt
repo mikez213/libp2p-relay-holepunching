@@ -1,0 +1,37 @@
+Agent pid 1929
+/Users/mzhang/.zshrc:14: unmatched "
+mzhang@Mikes-MacBook-Pro client % 
+mzhang@Mikes-MacBook-Pro client % cd '/Users/mzhang/project/peer_discovery/search_for_others/chat'
+mzhang@Mikes-MacBook-Pro chat % cd ..
+mzhang@Mikes-MacBook-Pro search_for_others % go run chat/chat.go -port 2346 -bootstrap-peer /ip4/127.0.0.1/tcp/1234/p2p/12D3KooWNqHTm3cJpDpPMC4AoaoJnueVcWS9C4JXcwZvbpvSBmLv
+2024-09-27T16:54:42.799-0400    INFO    standardnode    chat/chat.go:115        Host created. We are:12D3KooWR7Q9oVGAUn5fkftHAyxc6qJARcLa1NKnS7KeAcLze1P1
+2024-09-27T16:54:42.799-0400    INFO    standardnode    chat/chat.go:116        [/ip4/127.0.0.1/tcp/2346 /ip4/192.168.254.169/tcp/2346]
+2024-09-27T16:54:42.799-0400    DEBUG   standardnode    chat/chat.go:138        Bootstrapping the DHT
+2024-09-27T16:54:42.799-0400    INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:322starting refreshing cpl 0 with key CIQAABAFPMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (routing table size was 0)
+2024-09-27T16:54:42.800-0400    WARN    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:187failed when refreshing routing table2 errors occurred:
+        * failed to query for self, err=failed to find any peer in table
+        * failed to refresh cpl=0, err=failed to find any peer in table
+
+
+2024-09-27T16:54:42.802-0400    WARN    dht     go-libp2p-kad-dht@v0.26.1/lookup.go:43  network size estimator track peers: expected bucket size number of peers
+2024-09-27T16:54:42.802-0400    INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:322starting refreshing cpl 0 with key CIQAAAE2D4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (routing table size was 1)
+2024-09-27T16:54:42.802-0400    WARN    dht     go-libp2p-kad-dht@v0.26.1/lookup.go:43  network size estimator track peers: expected bucket size number of peers
+2024-09-27T16:54:42.802-0400    INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:331finished refreshing cpl 0, routing table size is now 1
+2024-09-27T16:54:42.802-0400    INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:322starting refreshing cpl 1 with key CIQAAAHXNIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (routing table size was 1)
+2024-09-27T16:54:42.802-0400    WARN    dht     go-libp2p-kad-dht@v0.26.1/lookup.go:43  network size estimator track peers: expected bucket size number of peers
+2024-09-27T16:54:42.802-0400    INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:331finished refreshing cpl 1, routing table size is now 1
+2024-09-27T16:54:42.802-0400    INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:322starting refreshing cpl 2 with key CIQAAAG3AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (routing table size was 1)
+2024-09-27T16:54:42.803-0400    WARN    dht     go-libp2p-kad-dht@v0.26.1/lookup.go:43  network size estimator track peers: expected bucket size number of peers
+2024-09-27T16:54:42.803-0400    INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:331finished refreshing cpl 2, routing table size is now 1
+2024-09-27T16:54:47.800-0400    INFO    standardnode    chat/chat.go:147        Announcing ourselves...
+2024-09-27T16:54:47.801-0400    DEBUG   standardnode    chat/chat.go:150        Successfully announced!
+2024-09-27T16:54:47.801-0400    DEBUG   standardnode    chat/chat.go:153        Searching for other peers...
+2024-09-27T16:54:47.803-0400    WARN    dht     go-libp2p-kad-dht@v0.26.1/lookup.go:43  network size estimator track peers: expected bucket size number of peers
+2024-09-27T16:54:47.804-0400    DEBUG   standardnode    chat/chat.go:164        Found peer:{12D3KooWErnWu3vMJ16qfggFnh5Y7xLvmRDwSX9YMvkFXDAqCThD: [/ip4/127.0.0.1/tcp/2345 /ip4/192.168.254.169/tcp/2345]}
+2024-09-27T16:54:47.804-0400    DEBUG   standardnode    chat/chat.go:166        Connecting to:{12D3KooWErnWu3vMJ16qfggFnh5Y7xLvmRDwSX9YMvkFXDAqCThD: [/ip4/127.0.0.1/tcp/2345 /ip4/192.168.254.169/tcp/2345]}
+2024-09-27T16:54:47.816-0400    INFO    standardnode    chat/chat.go:174        Connected to:{12D3KooWErnWu3vMJ16qfggFnh5Y7xLvmRDwSX9YMvkFXDAqCThD: [/ip4/127.0.0.1/tcp/2345 /ip4/192.168.254.169/tcp/2345]}
+> test
+> test
+> 2024-09-27T16:55:03.811-0400  ERROR   standardnode    chat/chat.go:47 Error reading from buffer: stream reset
+^Csignal: interrupt
+mzhang@Mikes-MacBook-Pro search_for_others % c

@@ -1,0 +1,49 @@
+services:
+  boot:
+    build:
+      context: ./boot
+      dockerfile: Dockerfile
+    container_name: boot
+    ports:
+      - "1237:1237" # Host:Container
+    networks:
+      - libp2p-net
+    restart: unless-stopped
+
+  chat1:
+    build:
+      context: ./chat
+      dockerfile: Dockerfile
+    container_name: chat1
+    depends_on:
+      - boot
+    environment:
+      - BOOTSTRAP_ADDR=/dns4/boot/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
+    networks:
+      - libp2p-net
+    ports:
+      - "8001:8000" # Host:Container
+    restart: unless-stopped
+    stdin_open: true   # Keeps stdin open
+    tty: true          # Allocates a pseudo-TTY
+
+  chat2:
+    build:
+      context: ./chat
+      dockerfile: Dockerfile
+    container_name: chat2
+    depends_on:
+      - boot
+    environment:
+      - BOOTSTRAP_ADDR=/dns4/boot/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
+    networks:
+      - libp2p-net
+    ports:
+      - "8002:8000" # Host:Container
+    restart: unless-stopped
+    stdin_open: true   # Keeps stdin open
+    tty: true          # Allocates a pseudo-TTY
+
+networks:
+  libp2p-net:
+    driver: bridge
