@@ -1,0 +1,64 @@
+2024-09-30 13:40:59 boot   | 2024-09-30T17:40:59.810Z   INFO    bootstrap       app/main.go:118 Bootstrap node is running. We are:12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
+2024-09-30 13:40:59 boot   | 2024-09-30T17:40:59.810Z   INFO    bootstrap       app/main.go:119 [/ip4/127.0.0.1/tcp/1237 /ip4/172.19.0.2/tcp/1237]
+2024-09-30 13:40:59 boot   | 2024-09-30T17:40:59.810Z   DEBUG   bootstrap       app/main.go:131 Bootstrapping the DHT
+2024-09-30 13:40:59 boot   | 2024-09-30T17:40:59.810Z   INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:322 starting refreshing cpl 0 with key CIQAAABLRUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (routing table size was 0)
+2024-09-30 13:40:59 boot   | 2024-09-30T17:40:59.810Z   WARN    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:187 failed when refreshing routing table2 errors occurred:
+2024-09-30 13:40:59 boot   |    * failed to query for self, err=failed to find any peer in table
+2024-09-30 13:40:59 boot   |    * failed to refresh cpl=0, err=failed to find any peer in table
+2024-09-30 13:40:59 boot   | 
+2024-09-30 13:40:59 boot   | 
+2024-09-30 13:40:59 chat2  | 2024-09-30T17:40:59.941Z   INFO    standardnode    app/main.go:128 Host created. We are:12D3KooWEDotmSjUhWqRne2WMyT5vP5eyDVJEH24wpxj7QyRaFRm
+2024-09-30 13:40:59 chat2  | 2024-09-30T17:40:59.941Z   INFO    standardnode    app/main.go:129 [/ip4/127.0.0.1/tcp/8326 /ip4/172.19.0.4/tcp/8326]
+2024-09-30 13:40:59 chat2  | 2024-09-30T17:40:59.941Z   DEBUG   standardnode    app/main.go:151 Bootstrapping the DHT
+2024-09-30 13:40:59 chat2  | 2024-09-30T17:40:59.941Z   INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:322 starting refreshing cpl 0 with key CIQAAAD24AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (routing table size was 0)
+2024-09-30 13:40:59 chat2  | 2024-09-30T17:40:59.941Z   WARN    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:187 failed when refreshing routing table2 errors occurred:
+2024-09-30 13:40:59 chat2  |    * failed to query for self, err=failed to find any peer in table
+2024-09-30 13:40:59 chat2  |    * failed to refresh cpl=0, err=failed to find any peer in table
+2024-09-30 13:40:59 chat2  | 
+2024-09-30 13:40:59 chat2  | 
+2024-09-30 13:40:59 chat2  | 2024-09-30T17:40:59.946Z   WARN    dht     go-libp2p-kad-dht@v0.26.1/lookup.go:43      network size estimator track peers: expected bucket size number of peers
+2024-09-30 13:40:59 chat2  | 2024-09-30T17:40:59.946Z   INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:322 starting refreshing cpl 0 with key CIQAAAHP6YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (routing table size was 1)
+2024-09-30 13:40:59 chat2  | 2024-09-30T17:40:59.947Z   WARN    dht     go-libp2p-kad-dht@v0.26.1/lookup.go:43      network size estimator track peers: expected bucket size number of peers
+2024-09-30 13:40:59 chat2  | 2024-09-30T17:40:59.947Z   INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:331 finished refreshing cpl 0, routing table size is now 1
+2024-09-30 13:40:59 chat2  | 2024-09-30T17:40:59.947Z   INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:322 starting refreshing cpl 1 with key CIQAAAPLJ4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (routing table size was 1)
+2024-09-30 13:40:59 chat2  | 2024-09-30T17:40:59.947Z   WARN    dht     go-libp2p-kad-dht@v0.26.1/lookup.go:43      network size estimator track peers: expected bucket size number of peers
+2024-09-30 13:40:59 chat2  | 2024-09-30T17:40:59.947Z   INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:331 finished refreshing cpl 1, routing table size is now 1
+2024-09-30 13:40:59 chat1  | 2024-09-30T17:40:59.958Z   INFO    standardnode    app/main.go:128 Host created. We are:12D3KooWMj9WRgGWFs6GQG6MhDm97eXjYS6y4CChtAKpC17nRkRC
+2024-09-30 13:40:59 chat1  | 2024-09-30T17:40:59.958Z   INFO    standardnode    app/main.go:129 [/ip4/127.0.0.1/tcp/8519 /ip4/172.19.0.3/tcp/8519]
+2024-09-30 13:40:59 chat1  | 2024-09-30T17:40:59.958Z   DEBUG   standardnode    app/main.go:151 Bootstrapping the DHT
+2024-09-30 13:40:59 chat1  | 2024-09-30T17:40:59.958Z   INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:322 starting refreshing cpl 0 with key CIQAAAKN7UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (routing table size was 0)
+2024-09-30 13:40:59 chat1  | 2024-09-30T17:40:59.958Z   WARN    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:187 failed when refreshing routing table2 errors occurred:
+2024-09-30 13:40:59 chat1  |    * failed to query for self, err=failed to find any peer in table
+2024-09-30 13:40:59 chat1  |    * failed to refresh cpl=0, err=failed to find any peer in table
+2024-09-30 13:40:59 chat1  | 
+2024-09-30 13:40:59 chat1  | 
+2024-09-30 13:40:59 chat1  | 2024-09-30T17:40:59.963Z   WARN    dht     go-libp2p-kad-dht@v0.26.1/lookup.go:43      network size estimator track peers: expected bucket size number of peers
+2024-09-30 13:40:59 chat1  | 2024-09-30T17:40:59.963Z   INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:322 starting refreshing cpl 0 with key CIQAAA2LNAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA (routing table size was 1)
+2024-09-30 13:40:59 chat1  | 2024-09-30T17:40:59.963Z   WARN    dht     go-libp2p-kad-dht@v0.26.1/lookup.go:43      network size estimator track peers: expected bucket size number of peers
+2024-09-30 13:40:59 chat1  | 2024-09-30T17:40:59.963Z   INFO    dht/RtRefreshManager    rtrefresh/rt_refresh_manager.go:331 finished refreshing cpl 0, routing table size is now 1
+2024-09-30 13:40:59 chat1  | 2024-09-30T17:40:59.963Z   WARN    dht     go-libp2p-kad-dht@v0.26.1/lookup.go:43      network size estimator track peers: expected bucket size number of peers
+2024-09-30 13:41:04 boot   | 2024-09-30T17:41:04.810Z   INFO    basichost       basic/natmgr.go:112     DiscoverNAT error:no NAT found
+2024-09-30 13:41:04 boot   | Bootstrap node is running. Peer ID: 12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
+2024-09-30 13:41:04 boot   | Use the following multiaddress to connect:
+2024-09-30 13:41:04 boot   | /ip4/127.0.0.1/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
+2024-09-30 13:41:04 boot   | /ip4/172.19.0.2/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
+2024-09-30 13:41:04 chat2  | 2024-09-30T17:41:04.942Z   INFO    standardnode    app/main.go:160 Announcing ourselves...
+2024-09-30 13:41:04 chat2  | 2024-09-30T17:41:04.942Z   DEBUG   standardnode    app/main.go:163 Successfully announced!
+2024-09-30 13:41:04 chat2  | 2024-09-30T17:41:04.943Z   DEBUG   standardnode    app/main.go:166 Searching for other peers...
+2024-09-30 13:41:04 chat2  | 2024-09-30T17:41:04.943Z   INFO    basichost       basic/natmgr.go:112     DiscoverNAT error:no NAT found
+2024-09-30 13:41:04 chat2  | 2024-09-30T17:41:04.945Z   WARN    dht     go-libp2p-kad-dht@v0.26.1/lookup.go:43      network size estimator track peers: expected bucket size number of peers
+2024-09-30 13:41:04 chat1  | 2024-09-30T17:41:04.956Z   INFO    basichost       basic/natmgr.go:112     DiscoverNAT error:no NAT found
+2024-09-30 13:41:04 chat1  | 2024-09-30T17:41:04.959Z   INFO    standardnode    app/main.go:160 Announcing ourselves...
+2024-09-30 13:41:04 chat1  | 2024-09-30T17:41:04.959Z   DEBUG   standardnode    app/main.go:163 Successfully announced!
+2024-09-30 13:41:04 chat1  | 2024-09-30T17:41:04.959Z   DEBUG   standardnode    app/main.go:166 Searching for other peers...
+2024-09-30 13:41:04 chat1  | 2024-09-30T17:41:04.963Z   DEBUG   standardnode    app/main.go:177 Found peer:{12D3KooWEDotmSjUhWqRne2WMyT5vP5eyDVJEH24wpxj7QyRaFRm: [/ip4/172.19.0.4/tcp/8326 /ip4/127.0.0.1/tcp/8326]}
+2024-09-30 13:41:04 chat1  | 2024-09-30T17:41:04.963Z   DEBUG   standardnode    app/main.go:179 Connecting to:{12D3KooWEDotmSjUhWqRne2WMyT5vP5eyDVJEH24wpxj7QyRaFRm: [/ip4/172.19.0.4/tcp/8326 /ip4/127.0.0.1/tcp/8326]}
+2024-09-30 13:41:04 chat1  | 2024-09-30T17:41:04.966Z   WARN    dht     go-libp2p-kad-dht@v0.26.1/lookup.go:43      network size estimator track peers: expected bucket size number of peers
+2024-09-30 13:41:04 chat1  | 2024-09-30T17:41:04.972Z   INFO    standardnode    app/main.go:187 Connected to:{12D3KooWEDotmSjUhWqRne2WMyT5vP5eyDVJEH24wpxj7QyRaFRm: [/ip4/172.19.0.4/tcp/8326 /ip4/127.0.0.1/tcp/8326]}!!!!!!!!
+2024-09-30 13:41:04 chat1  | !!!!!!!
+2024-09-30 13:41:04 chat1  | 
+2024-09-30 13:41:04 chat1  | 
+2024-09-30 13:41:04 chat1  | 
+2024-09-30 13:41:04 chat1  | 
+2024-09-30 13:41:04 chat1  | !!!!!!!
+2024-09-30 13:41:04 chat2  | 2024-09-30T17:41:04.972Z   INFO    standardnode    app/main.go:33  Got a new stream!

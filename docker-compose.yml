@@ -18,7 +18,7 @@ services:
     depends_on:
       - boot
     environment:
-      - BOOTSTRAP_ADDR=/dns4/boot/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
+      - BOOTSTRAP_ADDR=/ip4/10.0.20.118/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
     networks:
       - libp2p-net
     ports:
@@ -35,7 +35,7 @@ services:
     depends_on:
       - boot
     environment:
-      - BOOTSTRAP_ADDR=/dns4/boot/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
+      - BOOTSTRAP_ADDR=/ip4/10.0.20.118/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
     networks:
       - libp2p-net
     ports:
