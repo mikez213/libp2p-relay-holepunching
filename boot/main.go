@@ -2,46 +2,78 @@ package main
 
 import (
 	"context"
+	"flag" // Added for command-line flag parsing
 	"fmt"
+	"strings" // Added for string manipulation
 	"time"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore" // Added for peerstore management
 	"github.com/libp2p/go-libp2p/core/routing"
 
 	logging "github.com/ipfs/go-log/v2"
 	libp2p "github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/config"
+	multiaddr "github.com/multiformats/go-multiaddr" // Added for multiaddress parsing
 )
 
 var log = logging.Logger("bootstrap")
 
-const RelayerPrivateKey = "CAESQAA7xVQKsQ5VAC5ge+XsixR7YnDkzuHa4nrY8xWXGK3fo9yN1Eaiat9Vn1iwaVQDqTjywVP303ojVLxXcQ9ze4E="
+var RelayerPrivateKeys = []string{
+	"CAESQAA7xVQKsQ5VAC5ge+XsixR7YnDkzuHa4nrY8xWXGK3fo9yN1Eaiat9Vn1iwaVQDqTjywVP303ojVLxXcQ9ze4E=",
+	//12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
+	"CAESQMCYbjRpXBDUnIpDyqY+mA3n7z9gF3CaggWTknd90LauHUcz8ldNtlUchFATmMSE1r/NMnSpEBbLvzWQKq3N45s=",
+	//12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p
+	"CAESQB1Y1Li0Wd4KcvMvbv5/+CTG79axzl3R8yTuzWOckMgmNAzZqxim5E/7e9mgd87FTMPQNHqiItqTFwHJeMxr0H8=",
+	//12D3KooWDKYjXDDgSGzhEYWYtDvfP9pMtGNY1vnAwRsSp2CwCWHL
+}
 
-var RelayIdentity = func(cfg *config.Config) error {
-	b, err := crypto.ConfigDecodeKey(RelayerPrivateKey)
-	if err != nil {
-		return err
-	}
+const DefaultRelayerKeyIndex = 0
 
-	priv, err := crypto.UnmarshalPrivateKey(b)
-	if err != nil {
-		return err
+// RelayIdentity returns a libp2p option to set the host's identity based on the selected key
+func RelayIdentity(keyIndex int) func(*config.Config) error {
+	return func(cfg *config.Config) error {
+		if keyIndex < 0 || keyIndex >= len(RelayerPrivateKeys) {
+			return fmt.Errorf("invalid key index: %d", keyIndex)
+		}
+		relayerPrivateKey := RelayerPrivateKeys[keyIndex]
+
+		b, err := crypto.ConfigDecodeKey(relayerPrivateKey)
+		if err != nil {
+			return fmt.Errorf("failed to decode relayer private key: %v", err)
+		}
+
+		priv, err := crypto.UnmarshalPrivateKey(b)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal private key: %v", err)
+		}
+		return cfg.Apply(libp2p.Identity(priv))
 	}
-	return cfg.Apply(libp2p.Identity(priv))
 }
 
 func main() {
+	// Configure logging levels
 	logging.SetAllLoggers(logging.LevelInfo)
 	logging.SetLogLevel("bootstrap", "debug")
 
-	listenPort := 1237
+	// Define command-line flags
+	listenPort := flag.Int("port", 1237, "TCP port to listen on")                                           // Existing flag
+	bootstrapPeers := flag.String("bootstrap", "", "Comma-separated list of bootstrap peer multiaddresses") // Added flag for bootstrap peers
+	keyIndex := flag.Int("key", DefaultRelayerKeyIndex, "Index of the RelayerPrivateKey to use")            // Added flag to select key
+	flag.Parse()
+
+	// Validate key index
+	if *keyIndex < 0 || *keyIndex >= len(RelayerPrivateKeys) {
+		log.Fatalf("Invalid key index %d. Must be between 0 and %d", *keyIndex, len(RelayerPrivateKeys)-1)
+	}
 
 	ctx := context.Background()
 	host, err := libp2p.New(
-		RelayIdentity,
-		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", listenPort)),
+		RelayIdentity(*keyIndex), // Use selected RelayerPrivateKey
+		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", *listenPort)),
 		libp2p.EnableRelay(),
 		libp2p.NATPortMap(),
 		libp2p.EnableNATService(),
@@ -49,7 +81,6 @@ func main() {
 		libp2p.EnableHolePunching(),
 		libp2p.ForceReachabilityPublic(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) { return dht.New(ctx, h, dht.Mode(dht.ModeServer)) }),
-		// libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) { return dht.New(ctx, h) }),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -61,6 +92,7 @@ func main() {
 		log.Infof("%s/p2p/%s", addr, host.ID())
 	}
 
+	// Set stream handler if needed (commented out as per original code)
 	// host.SetStreamHandler("/chat/1.0.0", handleStream)
 
 	kademliaDHT, err := dht.New(ctx, host, dht.Mode(dht.ModeServer))
@@ -73,13 +105,56 @@ func main() {
 		log.Fatal(err)
 	}
 
-	time.Sleep(5 * time.Second)
+	// Connect to additional bootstrap peers if provided
+	if *bootstrapPeers != "" {
+		peers := strings.Split(*bootstrapPeers, ",")
+		for _, peerAddr := range peers {
+			peerAddr = strings.TrimSpace(peerAddr)
+			if peerAddr == "" {
+				continue
+			}
 
-	log.Infof("running. Peer ID: %s", host.ID())
+			maddr, err := multiaddr.NewMultiaddr(peerAddr)
+			if err != nil {
+				log.Infof("Invalid bootstrap peer multiaddress '%s': %v", peerAddr, err)
+				continue
+			}
+
+			peerInfo, err := peer.AddrInfoFromP2pAddr(maddr)
+			if err != nil {
+				log.Infof("Failed to get peer info from address '%s': %v", peerAddr, err)
+				continue
+			}
+
+			// Add peer addresses to the peerstore
+			host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, peerstore.PermanentAddrTTL)
+
+			// Attempt to connect to the bootstrap peer
+			if err := host.Connect(ctx, *peerInfo); err != nil {
+				log.Infof("Failed to connect to bootstrap peer %s: %v", peerInfo.ID, err)
+				continue
+			}
+			log.Infof("Connected to bootstrap peer %s", peerInfo.ID)
+		}
+	}
+
+	// Allow DHT some time to integrate the new peers
+	time.Sleep(2 * time.Second)
+
+	log.Infof("Running. Peer ID: %s", host.ID())
 	log.Info("Use multiaddresses to connect:")
 	for _, addr := range host.Addrs() {
 		log.Infof("%s/p2p/%s", addr, host.ID())
 	}
+
+	// Periodically log the current routing table peers
+	go func() {
+		for {
+			peers := kademliaDHT.RoutingTable().ListPeers()
+			log.Infof("Current routing table peers (%d): %v", len(peers), peers)
+			time.Sleep(5 * time.Second)
+		}
+	}()
 
 	select {}
 }

@@ -74,13 +74,26 @@ func writeData(rw *bufio.ReadWriter) {
 	}
 }
 
+func parseBootstrapAddr(addr string) (*peer.AddrInfo, error) {
+	maddr, err := multiaddr.NewMultiaddr(addr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid multiaddress: %v", err)
+	}
+
+	peerInfo, err := peer.AddrInfoFromP2pAddr(maddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract peer info: %v", err)
+	}
+
+	return peerInfo, nil
+}
+
 func main() {
 	// Initialize logging
 	logging.SetAllLoggers(logging.LevelInfo)
 	logging.SetLogLevel("standardnode", "debug")
 
-	addrStr := "/ip4/10.0.20.118/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n"
-
+	addrStr := "/ip4/10.0.20.118/tcp/1234/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n"
 	// addrStr := "/ip4/127.0.0.1/tcp/12354"
 	// Parse the bootstrap node address
 	bootstrapAddr, err := multiaddr.NewMultiaddr(addrStr)
