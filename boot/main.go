@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -15,7 +13,6 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	libp2p "github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/config"
-	"github.com/libp2p/go-libp2p/core/network"
 )
 
 var log = logging.Logger("bootstrap")
@@ -33,55 +30,6 @@ var RelayIdentity = func(cfg *config.Config) error {
 		return err
 	}
 	return cfg.Apply(libp2p.Identity(priv))
-}
-
-func handleStream(stream network.Stream) {
-	log.Info("Got a new stream!")
-
-	// Create a buffer stream for non-blocking read and write.
-	rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-
-	go readData(rw)
-	go writeData(rw)
-
-}
-
-func readData(rw *bufio.ReadWriter) {
-	for {
-		str, err := rw.ReadString('\n')
-		if err != nil {
-			log.Error("Error reading from buffer:", err)
-			return
-		}
-
-		if str != "" && str != "\n" {
-			fmt.Printf("\x1b[32m%s\x1b[0m> ", str)
-		}
-	}
-}
-
-func writeData(rw *bufio.ReadWriter) {
-	stdReader := bufio.NewReader(os.Stdin)
-
-	for {
-		fmt.Print("> ")
-		sendData, err := stdReader.ReadString('\n')
-		if err != nil {
-			log.Error("Error reading from stdin:", err)
-			return
-		}
-
-		_, err = rw.WriteString(sendData)
-		if err != nil {
-			log.Error("Error writing to buffer:", err)
-			return
-		}
-		err = rw.Flush()
-		if err != nil {
-			log.Error("Error flushing buffer:", err)
-			return
-		}
-	}
 }
 
 func main() {
@@ -113,7 +61,7 @@ func main() {
 		log.Infof("%s/p2p/%s", addr, host.ID())
 	}
 
-	host.SetStreamHandler("/chat/1.0.0", handleStream)
+	// host.SetStreamHandler("/chat/1.0.0", handleStream)
 
 	kademliaDHT, err := dht.New(ctx, host, dht.Mode(dht.ModeServer))
 	if err != nil {
