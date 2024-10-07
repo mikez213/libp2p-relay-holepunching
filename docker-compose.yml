@@ -1,49 +1,61 @@
+version: '3.8'
+
 services:
-  boot:
+  bootstrap1:
+    image: bootstrap_server:latest
+    container_name: bootstrap1
     build:
       context: ./boot
       dockerfile: Dockerfile
-    container_name: boot
     ports:
-      - "1237:1237" # Host:Container
+      - "1237:1237"
+    command: [
+      "./bootstrap_server",
+      "-port=1237",
+      "-key=0"
+    ]
     networks:
-      - libp2p-net
-    restart: unless-stopped
+      - bootstrap-net
 
-  chat1:
+  bootstrap2:
+    image: bootstrap_server:latest
+    container_name: bootstrap2
     build:
-      context: ./chat
+      context: ./boot
       dockerfile: Dockerfile
-    container_name: chat1
-    depends_on:
-      - boot
-    environment:
-      - BOOTSTRAP_ADDR=/ip4/10.0.20.118/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
-    networks:
-      - libp2p-net
     ports:
-      - "8001:8000" # Host:Container
-    restart: unless-stopped
-    stdin_open: true   # Keeps stdin open
-    tty: true          # Allocates a pseudo-TTY
+      - "1238:1238"
+    command: [
+      "./bootstrap_server",
+      "-port=1238",
+      "-key=1",
+      "-bootstrap=/dns4/bootstrap1/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n"
+    ]
+    depends_on:
+      - bootstrap1
+    networks:
+      - bootstrap-net
 
-  chat2:
+  bootstrap3:
+    image: bootstrap_server:latest
+    container_name: bootstrap3
     build:
-      context: ./chat
+      context: ./boot
       dockerfile: Dockerfile
-    container_name: chat2
-    depends_on:
-      - boot
-    environment:
-      - BOOTSTRAP_ADDR=/ip4/10.0.20.118/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
-    networks:
-      - libp2p-net
     ports:
-      - "8002:8000" # Host:Container
-    restart: unless-stopped
-    stdin_open: true   # Keeps stdin open
-    tty: true          # Allocates a pseudo-TTY
+      - "1239:1239"
+    command: [
+      "./bootstrap_server",
+      "-port=1239",
+      "-key=2",
+      "-bootstrap=/dns4/bootstrap1/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n,/dns4/bootstrap2/tcp/1239/p2p/12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p"
+    ]
+    depends_on:
+      - bootstrap1
+      - bootstrap2
+    networks:
+      - bootstrap-net
 
 networks:
-  libp2p-net:
+  bootstrap-net:
     driver: bridge
