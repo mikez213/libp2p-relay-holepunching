@@ -7,7 +7,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/crypto"
 )
 
-// generate server keys
 func main() {
 	for i := 0; i < 10; i++ {
 		priv, _, err := crypto.GenerateKeyPair(crypto.Ed25519, -1)

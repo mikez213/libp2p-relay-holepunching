@@ -62,14 +62,13 @@ func main() {
 	keyIndex := flag.Int("key", DefaultRelayerKeyIndex, "Index of the RelayerPrivateKey to use")
 	flag.Parse()
 
-	// Validate key index
 	if *keyIndex < 0 || *keyIndex >= len(RelayerPrivateKeys) {
-		log.Fatalf("Invalid key index %d. Must be between 0 and %d", *keyIndex, len(RelayerPrivateKeys)-1)
+		log.Fatalf("Invalid key index %d. max is %d", *keyIndex, len(RelayerPrivateKeys)-1)
 	}
 
 	ctx := context.Background()
 	host, err := libp2p.New(
-		RelayIdentity(*keyIndex), // Use selected RelayerPrivateKey
+		RelayIdentity(*keyIndex),
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", *listenPort)),
 		libp2p.EnableRelay(),
 		libp2p.NATPortMap(),
@@ -120,10 +119,9 @@ func main() {
 				continue
 			}
 
-			// Add peer addresses to the peerstore
+			// Add to peerstore
 			host.Peerstore().AddAddrs(peerInfo.ID, peerInfo.Addrs, peerstore.PermanentAddrTTL)
 
-			// Attempt to connect to the bootstrap peer
 			if err := host.Connect(ctx, *peerInfo); err != nil {
 				log.Errorf("Failed to connect to bootstrap peer %s: %v", peerInfo.ID, err)
 				continue
