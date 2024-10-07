@@ -2,22 +2,22 @@ package main
 
 import (
 	"context"
-	"flag" // Added for command-line flag parsing
+	"flag"
 	"fmt"
-	"strings" // Added for string manipulation
+	"strings"
 	"time"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/core/peerstore" // Added for peerstore management
+	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/routing"
 
 	logging "github.com/ipfs/go-log/v2"
 	libp2p "github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/config"
-	multiaddr "github.com/multiformats/go-multiaddr" // Added for multiaddress parsing
+	multiaddr "github.com/multiformats/go-multiaddr"
 )
 
 var log = logging.Logger("bootstrap")
@@ -33,7 +33,6 @@ var RelayerPrivateKeys = []string{
 
 const DefaultRelayerKeyIndex = 0
 
-// RelayIdentity returns a libp2p option to set the host's identity based on the selected key
 func RelayIdentity(keyIndex int) func(*config.Config) error {
 	return func(cfg *config.Config) error {
 		if keyIndex < 0 || keyIndex >= len(RelayerPrivateKeys) {
@@ -55,14 +54,12 @@ func RelayIdentity(keyIndex int) func(*config.Config) error {
 }
 
 func main() {
-	// Configure logging levels
 	logging.SetAllLoggers(logging.LevelInfo)
 	logging.SetLogLevel("bootstrap", "debug")
 
-	// Define command-line flags
-	listenPort := flag.Int("port", 1237, "TCP port to listen on")                                           // Existing flag
-	bootstrapPeers := flag.String("bootstrap", "", "Comma-separated list of bootstrap peer multiaddresses") // Added flag for bootstrap peers
-	keyIndex := flag.Int("key", DefaultRelayerKeyIndex, "Index of the RelayerPrivateKey to use")            // Added flag to select key
+	listenPort := flag.Int("port", 1237, "TCP port to listen on")
+	bootstrapPeers := flag.String("bootstrap", "", "Comma-separated list of bootstrap peer multiaddresses")
+	keyIndex := flag.Int("key", DefaultRelayerKeyIndex, "Index of the RelayerPrivateKey to use")
 	flag.Parse()
 
 	// Validate key index
@@ -92,9 +89,6 @@ func main() {
 		log.Infof("%s/p2p/%s", addr, host.ID())
 	}
 
-	// Set stream handler if needed (commented out as per original code)
-	// host.SetStreamHandler("/chat/1.0.0", handleStream)
-
 	kademliaDHT, err := dht.New(ctx, host, dht.Mode(dht.ModeServer))
 	if err != nil {
 		log.Fatal(err)
@@ -105,24 +99,24 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Connect to additional bootstrap peers if provided
 	if *bootstrapPeers != "" {
 		peers := strings.Split(*bootstrapPeers, ",")
 		for _, peerAddr := range peers {
 			peerAddr = strings.TrimSpace(peerAddr)
 			if peerAddr == "" {
+				log.Warnf("No addr")
 				continue
 			}
 
 			maddr, err := multiaddr.NewMultiaddr(peerAddr)
 			if err != nil {
-				log.Infof("Invalid bootstrap peer multiaddress '%s': %v", peerAddr, err)
+				log.Errorf("Invalid bootstrap peer multiaddress '%s': %v", peerAddr, err)
 				continue
 			}
 
 			peerInfo, err := peer.AddrInfoFromP2pAddr(maddr)
 			if err != nil {
-				log.Infof("Failed to get peer info from address '%s': %v", peerAddr, err)
+				log.Errorf("Failed to get peer info from address '%s': %v", peerAddr, err)
 				continue
 			}
 
@@ -131,14 +125,13 @@ func main() {
 
 			// Attempt to connect to the bootstrap peer
 			if err := host.Connect(ctx, *peerInfo); err != nil {
-				log.Infof("Failed to connect to bootstrap peer %s: %v", peerInfo.ID, err)
+				log.Errorf("Failed to connect to bootstrap peer %s: %v", peerInfo.ID, err)
 				continue
 			}
 			log.Infof("Connected to bootstrap peer %s", peerInfo.ID)
 		}
 	}
 
-	// Allow DHT some time to integrate the new peers
 	time.Sleep(2 * time.Second)
 
 	log.Infof("Running. Peer ID: %s", host.ID())
@@ -147,7 +140,6 @@ func main() {
 		log.Infof("%s/p2p/%s", addr, host.ID())
 	}
 
-	// Periodically log the current routing table peers
 	go func() {
 		for {
 			peers := kademliaDHT.RoutingTable().ListPeers()
