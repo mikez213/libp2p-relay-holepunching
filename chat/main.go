@@ -4,14 +4,20 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p/core/host"
 
 	logging "github.com/ipfs/go-log/v2"
 	libp2p "github.com/libp2p/go-libp2p"
-	routing "github.com/libp2p/go-libp2p/p2p/discovery/routing"
-	util "github.com/libp2p/go-libp2p/p2p/discovery/util"
+
+	routing "github.com/libp2p/go-libp2p/core/routing"
+	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -55,7 +61,7 @@ func handleStream(stream network.Stream) {
 	log.Infof("Received message: %s from %s", received, stream.Conn().RemotePeer())
 
 	if received == "PING\n" {
-		// Respond with "PONG\n")
+		// Respond with "PONG\n"
 		_, err = fmt.Fprintf(stream, "PONG\n")
 		if err != nil {
 			log.Error("Error writing PONG to stream:", err)
@@ -85,7 +91,10 @@ func main() {
 	}
 	bootstrapPeers := []peer.AddrInfo{*peerInfo}
 
-	// Create a new libp2p Host
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var kademliaDHT *dht.IpfsDHT
 	host, err := libp2p.New(
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", (rand.IntN(1000)+8000))),
 		libp2p.EnableRelay(),
@@ -95,6 +104,10 @@ func main() {
 		libp2p.EnableAutoNATv2(),
 		libp2p.EnableHolePunching(),
 		libp2p.ForceReachabilityPrivate(),
+		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
+			kademliaDHT, err = dht.New(ctx, h, dht.Mode(dht.ModeServer))
+			return kademliaDHT, err
+		}),
 	)
 	if err != nil {
 		log.Fatal("Failed to create libp2p host:", err)
@@ -102,35 +115,40 @@ func main() {
 
 	log.Infof("Host created. We are: %s", host.ID())
 
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		sig := <-sigChan
+		log.Infof("Received signal %s, shutting down...", sig)
+		if err := host.Close(); err != nil {
+			log.Errorf("Error closing host: %v", err)
+		}
+		os.Exit(0)
+	}()
+
 	rendezvousString := "meetme"
 	host.SetStreamHandler(protocol.ID(rendezvousString), handleStream)
 
 	log.Infof("Parsed Bootstrap PeerInfo: %+v", peerInfo)
 
-	if err := host.Connect(context.Background(), *peerInfo); err != nil {
+	if err := host.Connect(ctx, *peerInfo); err != nil {
 		log.Fatal("Failed to connect to bootstrap node:", err)
 	}
 	log.Infof("Connected to bootstrap node: %s", peerInfo.ID)
 
-	kademliaDHT, err := dht.New(context.Background(), host)
-	if err != nil {
-		log.Fatal("Failed to create DHT:", err)
-	}
-
-	log.Debug("Bootstrapping the DHT")
-	if err = kademliaDHT.Bootstrap(context.Background()); err != nil {
-		log.Fatal("Failed to bootstrap DHT:", err)
+	if kademliaDHT == nil {
+		log.Fatal("DHT was not initialized properly.")
 	}
 
 	time.Sleep(5 * time.Second)
 
 	log.Info("Announcing ourselves...")
-	routingDiscovery := routing.NewRoutingDiscovery(kademliaDHT)
-	util.Advertise(context.Background(), routingDiscovery, rendezvousString)
+	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
+	dutil.Advertise(ctx, routingDiscovery, rendezvousString)
 	log.Debug("Successfully announced!")
 
 	log.Debug("Searching for other peers...")
-	peerChan, err := routingDiscovery.FindPeers(context.Background(), rendezvousString)
+	peerChan, err := routingDiscovery.FindPeers(ctx, rendezvousString)
 	if err != nil {
 		log.Fatal("Failed to find peers:", err)
 	}
@@ -138,7 +156,7 @@ func main() {
 	connectedPeers := make(map[peer.ID]bool)
 
 	for p := range peerChan {
-		//skip self
+		// Skip self
 		if p.ID == host.ID() {
 			continue
 		}
@@ -153,14 +171,14 @@ func main() {
 			continue
 		}
 
-		// skip if already connected
+		// Skip if already connected
 		if connectedPeers[p.ID] {
 			continue
 		}
 
 		log.Info("Found peer:", p)
 
-		stream, err := host.NewStream(context.Background(), p.ID, protocol.ID(rendezvousString))
+		stream, err := host.NewStream(ctx, p.ID, protocol.ID(rendezvousString))
 		if err != nil {
 			log.Warning("Connection failed:", err)
 			continue
@@ -200,7 +218,7 @@ func main() {
 				}
 
 				go func(pid peer.ID) {
-					stream, err := host.NewStream(context.Background(), pid, protocol.ID(rendezvousString))
+					stream, err := host.NewStream(ctx, pid, protocol.ID(rendezvousString))
 					if err != nil {
 						log.Errorf("Failed to open stream to %s: %v", pid, err)
 						return
