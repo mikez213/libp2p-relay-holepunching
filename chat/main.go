@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"math/rand/v2"
+	"os"
+	"strings"
 	"time"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -115,36 +116,52 @@ func main() {
 	logging.SetAllLoggers(logging.LevelInfo)
 	logging.SetLogLevel("standardnode", "debug")
 
-	addrStr := "/ip4/172.18.0.2/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n"
-	// addrStr := "/dns4/bootstrap1/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n"
-
-	// Parse the bootstrap node address
-	bootstrapAddr, err := multiaddr.NewMultiaddr(addrStr)
-	if err != nil {
-		log.Fatal("Invalid bootstrap address:", err)
-	}
-	peerInfo, err := peer.AddrInfoFromP2pAddr(bootstrapAddr)
-	if err != nil {
-		log.Fatal("Failed to parse bootstrap peer info:", err)
-	}
-	bootstrapPeers := []peer.AddrInfo{*peerInfo}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Parse command-line arguments for bootstrap addresses
+	if len(os.Args) < 2 {
+		log.Fatal("Please provide at least one bootstrap node address as a command-line argument")
+	}
+
+	bootstrapAddrs := os.Args[1:]
+
+	// Convert bootstrap addresses to AddrInfo
+	var bootstrapPeers []peer.AddrInfo
+	for _, addrStr := range bootstrapAddrs {
+		addrStr = strings.TrimSpace(addrStr)
+		if addrStr == "" {
+			continue
+		}
+		maddr, err := multiaddr.NewMultiaddr(addrStr)
+		if err != nil {
+			log.Errorf("Invalid bootstrap address '%s': %v", addrStr, err)
+			continue
+		}
+		peerInfo, err := peer.AddrInfoFromP2pAddr(maddr)
+		if err != nil {
+			log.Errorf("Failed to parse bootstrap peer info from '%s': %v", addrStr, err)
+			continue
+		}
+		bootstrapPeers = append(bootstrapPeers, *peerInfo)
+	}
+
+	if len(bootstrapPeers) == 0 {
+		log.Fatal("No valid bootstrap addresses provided")
+	}
+
 	var kademliaDHT *dht.IpfsDHT
 	host, err := libp2p.New(
-		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", (rand.IntN(1000)+8000))),
+		libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"),
 		libp2p.EnableRelay(),
-		libp2p.EnableAutoRelayWithStaticRelays(bootstrapPeers),
 		libp2p.NATPortMap(),
 		libp2p.EnableNATService(),
 		libp2p.EnableAutoNATv2(),
 		libp2p.EnableHolePunching(),
 		libp2p.ForceReachabilityPrivate(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
-			kademliaDHT, err = dht.New(ctx, h, dht.Mode(dht.ModeServer))
-			return kademliaDHT, err
+			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeServer))
+			return kademliaDHT, nil
 		}),
 	)
 	if err != nil {
@@ -153,30 +170,18 @@ func main() {
 
 	log.Infof("Host created. We are: %s", host.ID())
 
-	// Removed Graceful Shutdown Handling:
-	// The following graceful shutdown code has been removed as per the request.
-	/*
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-		go func() {
-			sig := <-sigChan
-			log.Infof("Received signal %s, shutting down...", sig)
-			if err := host.Close(); err != nil {
-				log.Errorf("Error closing host: %v", err)
-			}
-			os.Exit(0)
-		}()
-	*/
-
 	rendezvousString := "meetme"
 	host.SetStreamHandler(protocol.ID(rendezvousString), handleStream)
 
-	log.Infof("Parsed Bootstrap PeerInfo: %+v", peerInfo)
-
-	if err := host.Connect(ctx, *peerInfo); err != nil {
-		log.Fatal("Failed to connect to bootstrap node:", err)
+	// Connect to all bootstrap nodes
+	for _, peerInfo := range bootstrapPeers {
+		log.Infof("Connecting to bootstrap node: %s", peerInfo.ID)
+		if err := host.Connect(ctx, peerInfo); err != nil {
+			log.Errorf("Failed to connect to bootstrap node %s: %v", peerInfo.ID, err)
+			continue
+		}
+		log.Infof("Connected to bootstrap node: %s", peerInfo.ID)
 	}
-	log.Infof("Connected to bootstrap node: %s", peerInfo.ID)
 
 	if kademliaDHT == nil {
 		log.Fatal("DHT was not initialized properly.")
