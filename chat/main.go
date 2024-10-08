@@ -4,9 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -42,6 +39,47 @@ func init() {
 			log.Fatalf("Failed to decode bootstrap Peer ID '%s': %v", idStr, err)
 		}
 		bootstrapPeerIDs = append(bootstrapPeerIDs, pid)
+	}
+}
+
+// isBootstrapPeer checks if the given peer ID is one of the bootstrap peers.
+func isBootstrapPeer(peerID peer.ID) bool {
+	for _, bootstrapID := range bootstrapPeerIDs {
+		if peerID == bootstrapID {
+			return true
+		}
+	}
+	return false
+}
+
+// pingPeer handles the ping-pong interaction with a peer.
+func pingPeer(ctx context.Context, host host.Host, pid peer.ID, rendezvous string, log logging.EventLogger, connectedPeers map[peer.ID]bool) {
+	stream, err := host.NewStream(ctx, pid, protocol.ID(rendezvous))
+	if err != nil {
+		log.Errorf("Failed to open stream to %s: %v", pid, err)
+		return
+	}
+	defer stream.Close()
+
+	// Send "PING\n"
+	if _, err := fmt.Fprintf(stream, "PING\n"); err != nil {
+		log.Errorf("Failed to send PING to %s: %v", pid, err)
+		return
+	}
+	log.Infof("Sent PING to %s", pid)
+
+	// Read "PONG\n" response
+	buf := make([]byte, 5) // Expecting "PONG\n"
+	if _, err := stream.Read(buf); err != nil {
+		log.Errorf("Failed to read PONG from %s: %v", pid, err)
+		return
+	}
+
+	if string(buf) == "PONG\n" {
+		log.Infof("Received PONG from %s", pid)
+		connectedPeers[pid] = true
+	} else {
+		log.Warnf("Unexpected response from %s: %s", pid, string(buf))
 	}
 }
 
@@ -115,16 +153,20 @@ func main() {
 
 	log.Infof("Host created. We are: %s", host.ID())
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		sig := <-sigChan
-		log.Infof("Received signal %s, shutting down...", sig)
-		if err := host.Close(); err != nil {
-			log.Errorf("Error closing host: %v", err)
-		}
-		os.Exit(0)
-	}()
+	// Removed Graceful Shutdown Handling:
+	// The following graceful shutdown code has been removed as per the request.
+	/*
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			sig := <-sigChan
+			log.Infof("Received signal %s, shutting down...", sig)
+			if err := host.Close(); err != nil {
+				log.Errorf("Error closing host: %v", err)
+			}
+			os.Exit(0)
+		}()
+	*/
 
 	rendezvousString := "meetme"
 	host.SetStreamHandler(protocol.ID(rendezvousString), handleStream)
@@ -156,22 +198,13 @@ func main() {
 	connectedPeers := make(map[peer.ID]bool)
 
 	for p := range peerChan {
-		// Skip self
 		if p.ID == host.ID() {
 			continue
 		}
-		isBootstrap := false
-		for _, bootstrapID := range bootstrapPeerIDs {
-			if p.ID == bootstrapID {
-				isBootstrap = true
-				break
-			}
-		}
-		if isBootstrap {
+		if isBootstrapPeer(p.ID) {
 			continue
 		}
 
-		// Skip if already connected
 		if connectedPeers[p.ID] {
 			continue
 		}
@@ -191,6 +224,7 @@ func main() {
 		connectedPeers[p.ID] = true
 	}
 
+	// Simplified Ping Section without connectedPeers condition
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
@@ -198,56 +232,16 @@ func main() {
 		for range ticker.C {
 			peers := host.Network().Peers()
 			if len(peers) == 0 {
-				log.Warnf("No peers to ping")
+				log.Warn("No peers to ping")
 				continue
 			}
 
 			for _, peerID := range peers {
-				if peerID == host.ID() {
-					continue
-				}
-				isBootstrap := false
-				for _, bootstrapID := range bootstrapPeerIDs {
-					if peerID == bootstrapID {
-						isBootstrap = true
-						break
-					}
-				}
-				if isBootstrap {
+				if peerID == host.ID() || isBootstrapPeer(peerID) {
 					continue
 				}
 
-				go func(pid peer.ID) {
-					stream, err := host.NewStream(ctx, pid, protocol.ID(rendezvousString))
-					if err != nil {
-						log.Errorf("Failed to open stream to %s: %v", pid, err)
-						return
-					}
-					defer stream.Close()
-
-					// Send "PING\n"
-					_, err = fmt.Fprintf(stream, "PING\n")
-					if err != nil {
-						log.Errorf("Failed to send PING to %s: %v", pid, err)
-						return
-					}
-					log.Infof("Sent PING to %s", pid)
-
-					// Read "PONG\n" response
-					buf := make([]byte, 5) // Expecting "PONG\n"
-					_, err = stream.Read(buf)
-					if err != nil {
-						log.Errorf("Failed to read PONG from %s: %v", pid, err)
-						return
-					}
-
-					response := string(buf)
-					if response == "PONG\n" {
-						log.Infof("Received PONG from %s", pid)
-					} else {
-						log.Warnf("Unexpected response from %s: %s", pid, response)
-					}
-				}(peerID)
+				go pingPeer(ctx, host, peerID, rendezvousString, log, connectedPeers)
 			}
 		}
 	}()
