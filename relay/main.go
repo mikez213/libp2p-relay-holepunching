@@ -21,13 +21,13 @@ var log = logging.Logger("relaylog")
 
 // relayer keys
 var relayerPrivateKeys = []string{
-	"CAESQB1Y1Li0Wd4KcvMvbv5/+CTG79axzl3R8yTuzWOckMgmNAzZqxim5E/7e9mgd87FTMPQNHqiItqTFwHJeMxr0H8=",
-	// pid: 12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
 	"CAESQHMEeM3iNIIxNThxIfnuO5FJ0oUQJy8V7TFD80lGziBE7SuPw2wckCrFRihVDaw0e6PkDCwsh/6u3UgBxB3OTFo=",
-	// pid: 12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p
+	//12D3KooWRnBKUEkAEpsoCoEiuhxKBJ5j2Bdop6PGxFMvd4PwoevM
+	"CAESQP3Pu7TVp2RSVIZykj65/MDXm/eiTOfLGH3xCWQVmUoC67MkFWUEOd6QERl1Y4Xvi1Rt+d36UuaFXanT+hVUDAY=",
+	//12D3KooWRgSQnguL2DYkXUXqCLiRQ35PEX4eEH3havy2X18AVALd
+	"CAESQDE2IToG5mWwzWEeXt3/OVbx9XyE743DTenPFUG8M06IQXSarkNhuxNEJisnWeuDvaoaM/fNJNMqhPR81NL3Pio=",
+	//12D3KooWEDso33ti9KsKmD2g2egNmw6BXgch7V5vFz1TziuNYybo
 }
-
-const defaultRelayerKeyIndex = 0
 
 func RelayIdentity(keyIndex int) (libp2p.Option, error) {
 	if keyIndex < 0 || keyIndex >= len(relayerPrivateKeys) {
@@ -49,12 +49,12 @@ func RelayIdentity(keyIndex int) (libp2p.Option, error) {
 }
 
 func main() {
-	logging.SetAllLoggers(logging.LevelWarn)
+	logging.SetAllLoggers(logging.LevelInfo)
 	logging.SetLogLevel("bootstrap", "debug")
 
 	listenPort := flag.Int("port", 1237, "TCP port to listen on")
 	bootstrapPeers := flag.String("bootstrap", "", "Comma separated bootstrap peer multiaddrs")
-	keyIndex := flag.Int("key", defaultRelayerKeyIndex, "Relayer private key index")
+	keyIndex := flag.Int("key", 0, "Relayer private key index")
 	flag.Parse()
 
 	relayOpt, err := RelayIdentity(*keyIndex)
