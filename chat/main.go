@@ -21,9 +21,10 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/multiformats/go-multiaddr"
+	// "github.com/libp2p/go-nat"
 )
 
-var log = logging.Logger("standardnode")
+var log = logging.Logger("chatlog")
 
 var bootstrapPeerIDs = []peer.ID{}
 
@@ -37,13 +38,12 @@ func init() {
 	for _, idStr := range bootstrapIDStrs {
 		pid, err := peer.Decode(idStr)
 		if err != nil {
-			log.Fatalf("Failed to decode bootstrap Peer ID '%s': %v", idStr, err)
+			log.Fatalf("failed to decode bootstrap pid '%s': %v", idStr, err)
 		}
 		bootstrapPeerIDs = append(bootstrapPeerIDs, pid)
 	}
 }
 
-// isBootstrapPeer checks if the given peer ID is one of the bootstrap peers.
 func isBootstrapPeer(peerID peer.ID) bool {
 	for _, bootstrapID := range bootstrapPeerIDs {
 		if peerID == bootstrapID {
@@ -53,80 +53,74 @@ func isBootstrapPeer(peerID peer.ID) bool {
 	return false
 }
 
-// pingPeer handles the ping-pong interaction with a peer.
 func pingPeer(ctx context.Context, host host.Host, pid peer.ID, rendezvous string, log logging.EventLogger, connectedPeers map[peer.ID]bool) {
 	stream, err := host.NewStream(ctx, pid, protocol.ID(rendezvous))
 	if err != nil {
-		log.Errorf("Failed to open stream to %s: %v", pid, err)
+		log.Errorf("failed to open stream to %s: %v", pid, err)
 		return
 	}
 	defer stream.Close()
 
-	// Send "PING\n"
 	if _, err := fmt.Fprintf(stream, "PING\n"); err != nil {
-		log.Errorf("Failed to send PING to %s: %v", pid, err)
+		log.Errorf("failed to send ping to %s: %v", pid, err)
 		return
 	}
-	log.Infof("Sent PING to %s", pid)
+	log.Infof("sent PING to %s", pid)
 
-	// Read "PONG\n" response
-	buf := make([]byte, 5) // Expecting "PONG\n"
+	buf := make([]byte, 5)
 	if _, err := stream.Read(buf); err != nil {
-		log.Errorf("Failed to read PONG from %s: %v", pid, err)
+		log.Errorf("failed to read PONG from %s: %v", pid, err)
 		return
 	}
 
 	if string(buf) == "PONG\n" {
-		log.Infof("Received PONG from %s", pid)
+		log.Infof("got PONG from %s", pid)
 		connectedPeers[pid] = true
 	} else {
-		log.Warnf("Unexpected response from %s: %s", pid, string(buf))
+		log.Warnf("unexpected resp from %s: %s", pid, string(buf))
 	}
 }
 
 func handleStream(stream network.Stream) {
-	log.Info("Received a new stream from", stream.Conn().RemotePeer())
+	log.Infof("got new stream from %s", stream.Conn().RemotePeer())
 
 	defer stream.Close()
 
-	buf := make([]byte, 5) // Expecting "PING\n"
+	buf := make([]byte, 5)
 	_, err := stream.Read(buf)
 	if err != nil {
-		log.Error("Error reading from stream:", err)
+		log.Errorf("err reading from stream: %v", err)
 		return
 	}
 
 	received := string(buf)
-	log.Infof("Received message: %s from %s", received, stream.Conn().RemotePeer())
+	log.Infof("got msg: %s from %s", received, stream.Conn().RemotePeer())
 
 	if received == "PING\n" {
-		// Respond with "PONG\n"
-		_, err = fmt.Fprintf(stream, "PONG\n")
-		if err != nil {
-			log.Error("Error writing PONG to stream:", err)
+		if _, err = fmt.Fprintf(stream, "PONG\n"); err != nil {
+			log.Errorf("err writing PONG to stream: %v", err)
 			return
 		}
-		log.Infof("Sent PONG to %s", stream.Conn().RemotePeer())
+		log.Infof("sent PONG to %s", stream.Conn().RemotePeer())
 	} else {
-		log.Infof("Unexpected message: %s from %s", received, stream.Conn().RemotePeer())
+		log.Infof("unexpected msg: %s from %s", received, stream.Conn().RemotePeer())
 	}
 }
 
 func main() {
+	// logging.SetAllLoggers(logging.LevelDebug)
 	logging.SetAllLoggers(logging.LevelInfo)
-	logging.SetLogLevel("standardnode", "debug")
+	logging.SetLogLevel("chatnode", "debug")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Parse command-line arguments for bootstrap addresses
 	if len(os.Args) < 2 {
-		log.Fatal("Please provide at least one bootstrap node address as a command-line argument")
+		log.Fatal("need a bootstrap node")
 	}
 
 	bootstrapAddrs := os.Args[1:]
 
-	// Convert bootstrap addresses to AddrInfo
 	var bootstrapPeers []peer.AddrInfo
 	for _, addrStr := range bootstrapAddrs {
 		addrStr = strings.TrimSpace(addrStr)
@@ -135,74 +129,78 @@ func main() {
 		}
 		maddr, err := multiaddr.NewMultiaddr(addrStr)
 		if err != nil {
-			log.Errorf("Invalid bootstrap address '%s': %v", addrStr, err)
+			log.Errorf("invalid bootstrap addr '%s': %v", addrStr, err)
 			continue
 		}
 		peerInfo, err := peer.AddrInfoFromP2pAddr(maddr)
 		if err != nil {
-			log.Errorf("Failed to parse bootstrap peer info from '%s': %v", addrStr, err)
+			log.Errorf("failed to parse bootstrap peer info from '%s': %v", addrStr, err)
 			continue
 		}
 		bootstrapPeers = append(bootstrapPeers, *peerInfo)
 	}
 
 	if len(bootstrapPeers) == 0 {
-		log.Fatal("No valid bootstrap addresses provided")
+		log.Fatal("no valid bootstrap addrs")
 	}
 
 	var kademliaDHT *dht.IpfsDHT
 	host, err := libp2p.New(
 		libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"),
 		libp2p.EnableRelay(),
+		libp2p.EnableAutoRelayWithStaticRelays(bootstrapPeers),
 		libp2p.NATPortMap(),
 		libp2p.EnableNATService(),
 		libp2p.EnableAutoNATv2(),
 		libp2p.EnableHolePunching(),
-		libp2p.ForceReachabilityPrivate(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
-			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeServer))
+			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeClient))
 			return kademliaDHT, nil
 		}),
 	)
 	if err != nil {
-		log.Fatal("Failed to create libp2p host:", err)
+		log.Fatalf("failed to create libp2p host: %v", err)
 	}
 
-	log.Infof("Host created. We are: %s", host.ID())
+	log.Infof("host created, we are %s", host.ID())
 
 	rendezvousString := "meetme"
 	host.SetStreamHandler(protocol.ID(rendezvousString), handleStream)
 
-	// Connect to all bootstrap nodes
 	for _, peerInfo := range bootstrapPeers {
-		log.Infof("Connecting to bootstrap node: %s", peerInfo.ID)
+		log.Infof("connecting to bootstrap node %s", peerInfo.ID)
 		if err := host.Connect(ctx, peerInfo); err != nil {
-			log.Errorf("Failed to connect to bootstrap node %s: %v", peerInfo.ID, err)
+			log.Errorf("failed to connect to bootstrap node %s: %v", peerInfo.ID, err)
 			continue
 		}
-		log.Infof("Connected to bootstrap node: %s", peerInfo.ID)
+		log.Infof("connected to bootstrap node %s", peerInfo.ID)
 	}
 
 	if kademliaDHT == nil {
-		log.Fatal("DHT was not initialized properly.")
+		log.Fatal("dht not init properly")
 	}
 
-	time.Sleep(5 * time.Second)
+	if err := kademliaDHT.Bootstrap(ctx); err != nil {
+		log.Fatalf("failed to bootstrap dht: %v", err)
+	}
 
-	log.Info("Announcing ourselves...")
+	time.Sleep(10 * time.Second)
+
+	log.Info("announcing ourselves")
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
 	dutil.Advertise(ctx, routingDiscovery, rendezvousString)
-	log.Debug("Successfully announced!")
+	log.Debug("successfully announced")
 
-	log.Debug("Searching for other peers...")
+	log.Debug("searching for peers")
 	peerChan, err := routingDiscovery.FindPeers(ctx, rendezvousString)
 	if err != nil {
-		log.Fatal("Failed to find peers:", err)
+		log.Fatalf("failed to find peers: %v", err)
 	}
 
 	connectedPeers := make(map[peer.ID]bool)
 
 	for p := range peerChan {
+
 		if p.ID == host.ID() {
 			continue
 		}
@@ -214,22 +212,35 @@ func main() {
 			continue
 		}
 
-		log.Info("Found peer:", p)
+		// relayAddrs := host.Network().Peerstore().Addrs(p.ID)
+		// if len(relayAddrs) > 0 {
+		// 	p.Addrs = append(p.Addrs, relayAddrs...)
+		// }
+		// if err := host.Connect(ctx, p); err != nil {
+		// 	log.Warningf("failed to connect to peer %s: %v", p.ID, err)
+		// 	continue
+		// }
 
-		stream, err := host.NewStream(ctx, p.ID, protocol.ID(rendezvousString))
-		if err != nil {
-			log.Warning("Connection failed:", err)
+		log.Infof("found peer: %v", p)
+
+		if err := host.Connect(ctx, p); err != nil {
+			log.Warningf("failed to connect to peer %s: %v", p.ID, err)
 			continue
 		}
 
-		log.Infof("Connected to: %s", p.ID)
+		stream, err := host.NewStream(ctx, p.ID, protocol.ID(rendezvousString))
+		if err != nil {
+			log.Warningf("failed to open stream to peer %s: %v", p.ID, err)
+			continue
+		}
+
+		log.Infof("connected to %s", p.ID)
 
 		stream.Close()
 
 		connectedPeers[p.ID] = true
 	}
 
-	// Simplified Ping Section without connectedPeers condition
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
@@ -237,7 +248,7 @@ func main() {
 		for range ticker.C {
 			peers := host.Network().Peers()
 			if len(peers) == 0 {
-				log.Warn("No peers to ping")
+				log.Warn("no peers to ping")
 				continue
 			}
 

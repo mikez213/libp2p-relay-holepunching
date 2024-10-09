@@ -5,16 +5,12 @@ services:
     build:
       context: ./boot
       dockerfile: Dockerfile
-    ports:
-      - "1237:1237"
+    network_mode: host  # Use host network
     command: [
       "./bootstrap_server",
       "-port=1237",
       "-key=0"
     ]
-    networks:
-      bootstrap-net:
-        ipv4_address: 172.18.0.2
 
   bootstrap2:
     image: bootstrap_server:latest
@@ -22,19 +18,15 @@ services:
     build:
       context: ./boot
       dockerfile: Dockerfile
-    ports:
-      - "1238:1238"
+    network_mode: host  # Use host network
     command: [
       "./bootstrap_server",
       "-port=1238",
       "-key=1",
-      "-bootstrap=/ip4/172.18.0.2/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n"
+      "-bootstrap=/ip4/192.168.65.3/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n"
     ]
     depends_on:
       - bootstrap1
-    networks:
-      bootstrap-net:
-        ipv4_address: 172.18.0.3
 
   bootstrap3:
     image: bootstrap_server:latest
@@ -42,20 +34,16 @@ services:
     build:
       context: ./boot
       dockerfile: Dockerfile
-    ports:
-      - "1239:1239"
+    network_mode: host  # Use host network
     command: [
       "./bootstrap_server",
       "-port=1239",
       "-key=2",
-      "-bootstrap=/ip4/172.18.0.2/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n,/ip4/172.18.0.3/tcp/1238/p2p/12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p"
+      "-bootstrap=/ip4/192.168.65.3/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n,/ip4/192.168.65.3/tcp/1238/p2p/12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p"
     ]
     depends_on:
       - bootstrap1
       - bootstrap2
-    networks:
-      bootstrap-net:
-        ipv4_address: 172.18.0.4
 
   chat1:
     image: chat_client:latest
@@ -67,17 +55,16 @@ services:
       - bootstrap1
       - bootstrap2
       - bootstrap3
+    network_mode: host
     command: [
       "./chat_client",
-      "/ip4/172.18.0.2/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n",
-      "/ip4/172.18.0.3/tcp/1238/p2p/12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p",
-      "/ip4/172.18.0.4/tcp/1239/p2p/12D3KooWDKYjXDDgSGzhEYWYtDvfP9pMtGNY1vnAwRsSp2CwCWHL"
+      "/ip4/192.168.65.3/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n",
+      "/ip4/192.168.65.3/tcp/1238/p2p/12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p",
+      "/ip4/192.168.65.3/tcp/1239/p2p/12D3KooWDKYjXDDgSGzhEYWYtDvfP9pMtGNY1vnAwRsSp2CwCWHL"
     ]
-    networks:
-      bootstrap-net:
-        ipv4_address: 172.18.0.5
-      chat1-net:
-        ipv4_address: 172.19.0.2
+    # networks:
+    #   chat1-net:
+    #     ipv4_address: 172.19.0.2
 
   chat2:
     image: chat_client:latest
@@ -89,25 +76,38 @@ services:
       - bootstrap1
       - bootstrap2
       - bootstrap3
+    # network_mode: host
     command: [
       "./chat_client",
-      "/ip4/172.18.0.2/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n",
-      "/ip4/172.18.0.3/tcp/1238/p2p/12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p",
-      "/ip4/172.18.0.4/tcp/1239/p2p/12D3KooWDKYjXDDgSGzhEYWYtDvfP9pMtGNY1vnAwRsSp2CwCWHL "
+      "/ip4/192.168.65.3/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n",
+      "/ip4/192.168.65.3/tcp/1238/p2p/12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p",
+      "/ip4/192.168.65.3/tcp/1239/p2p/12D3KooWDKYjXDDgSGzhEYWYtDvfP9pMtGNY1vnAwRsSp2CwCWHL"
     ]
     networks:
-      bootstrap-net:
-        ipv4_address: 172.18.0.6
       chat2-net:
         ipv4_address: 172.20.0.2
 
+  chat3:
+    image: chat_client:latest
+    container_name: chat3
+    build:
+      context: ./chat
+      dockerfile: Dockerfile
+    depends_on:
+      - bootstrap1
+      - bootstrap2
+      - bootstrap3
+    command: [
+      "./chat_client",
+      "/ip4/192.168.65.3/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n",
+      "/ip4/192.168.65.3/tcp/1238/p2p/12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p",
+      "/ip4/192.168.65.3/tcp/1239/p2p/12D3KooWDKYjXDDgSGzhEYWYtDvfP9pMtGNY1vnAwRsSp2CwCWHL"
+    ]
+    networks:
+      chat3-net:
+        ipv4_address: 172.21.0.2
+        
 networks:
-  bootstrap-net:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.18.0.0/16
-
   chat1-net:
     driver: bridge
     ipam:
@@ -119,3 +119,9 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/16
+
+  chat3-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16

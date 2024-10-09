@@ -10,7 +10,7 @@ COPY . .
 
 RUN go build -o chat_client .
 
-EXPOSE 1234 1237 1238 1239
+# EXPOSE 1234 1237 1238 1239
 
 #this is overwrite by compose
 CMD ["./chat_client", '-bootstrap="runthisindocker or /ip4/10.0.20.118/tcp/1234/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n"']

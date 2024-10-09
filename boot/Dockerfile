@@ -10,7 +10,7 @@ COPY . .
 
 RUN go build -o bootstrap_server .
 
-EXPOSE 1237 1238 1239
+#removed expose for host
 
 #this is overwrite by compose
 CMD ["./bootstrap_server", "-port=1237","-key=0"]
