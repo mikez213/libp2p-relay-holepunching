@@ -14,13 +14,24 @@ import (
 
 	logging "github.com/ipfs/go-log/v2"
 	libp2p "github.com/libp2p/go-libp2p"
+
+	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
+
 	multiaddr "github.com/multiformats/go-multiaddr"
 )
 
 var log = logging.Logger("relaylog")
 
-// relayer keys
 var relayerPrivateKeys = []string{
+	//boots
+	"CAESQAA7xVQKsQ5VAC5ge+XsixR7YnDkzuHa4nrY8xWXGK3fo9yN1Eaiat9Vn1iwaVQDqTjywVP303ojVLxXcQ9ze4E=",
+	// pid: 12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
+	"CAESQMCYbjRpXBDUnIpDyqY+mA3n7z9gF3CaggWTknd90LauHUcz8ldNtlUchFATmMSE1r/NMnSpEBbLvzWQKq3N45s=",
+	// pid: 12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p
+	"CAESQB1Y1Li0Wd4KcvMvbv5/+CTG79axzl3R8yTuzWOckMgmNAzZqxim5E/7e9mgd87FTMPQNHqiItqTFwHJeMxr0H8=",
+	// pid: 12D3KooWDKYjXDDgSGzhEYWYtDvfP9pMtGNY1vnAwRsSp2CwCWHL
+
+	//relays
 	"CAESQHMEeM3iNIIxNThxIfnuO5FJ0oUQJy8V7TFD80lGziBE7SuPw2wckCrFRihVDaw0e6PkDCwsh/6u3UgBxB3OTFo=",
 	//12D3KooWRnBKUEkAEpsoCoEiuhxKBJ5j2Bdop6PGxFMvd4PwoevM
 	"CAESQP3Pu7TVp2RSVIZykj65/MDXm/eiTOfLGH3xCWQVmUoC67MkFWUEOd6QERl1Y4Xvi1Rt+d36UuaFXanT+hVUDAY=",
@@ -50,16 +61,16 @@ func RelayIdentity(keyIndex int) (libp2p.Option, error) {
 
 func main() {
 	logging.SetAllLoggers(logging.LevelInfo)
-	logging.SetLogLevel("bootstrap", "debug")
+	logging.SetLogLevel("relaylog", "debug")
 
 	listenPort := flag.Int("port", 1237, "TCP port to listen on")
 	bootstrapPeers := flag.String("bootstrap", "", "Comma separated bootstrap peer multiaddrs")
-	keyIndex := flag.Int("key", 0, "Relayer private key index")
+	keyIndex := flag.Int("key", 3, "Relayer private key index") //relay keys start at 3
 	flag.Parse()
 
 	relayOpt, err := RelayIdentity(*keyIndex)
 	if err != nil {
-		log.Fatalf("relay id err: %v", err)
+		log.Fatalf("relay identity error: %v", err)
 	}
 
 	ctx := context.Background()
@@ -67,6 +78,7 @@ func main() {
 		relayOpt,
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", *listenPort)),
 		libp2p.EnableRelay(),
+		libp2p.EnableRelayService(),
 		libp2p.NATPortMap(),
 		libp2p.EnableNATService(),
 		libp2p.EnableAutoNATv2(),
@@ -76,9 +88,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	mt := relay.NewMetricsTracer()
 
-	log.Infof("bootstrap up pid %s", host.ID())
-	log.Info("listening on:")
+	_, err = relay.New(host, relay.WithInfiniteLimits(), relay.WithMetricsTracer(mt))
+	if err != nil {
+		log.Info("Failed to instantiate the relay: %v", err)
+		return
+	}
+
+	log.Infof("relay node is running Peer ID: %s", host.ID())
+	log.Info("Listening on:")
 	for _, addr := range host.Addrs() {
 		log.Infof("%s/p2p/%s", addr, host.ID())
 	}
@@ -88,6 +107,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// seperate this into one boot function and only need to connect once
 	log.Debug("bootstrapping dht")
 	if err := kademliaDHT.Bootstrap(ctx); err != nil {
 		log.Fatal(err)
@@ -134,8 +154,11 @@ func main() {
 
 	go func() {
 		for {
+			kademliaDHT.RefreshRoutingTable() //has a channel to block, but unused for now
 			peers := kademliaDHT.RoutingTable().ListPeers()
-			log.Infof("routing table peers (%d): %v", len(peers), peers)
+			log.Infof("Routing table peers (%d): %v", len(peers), peers)
+			// log.Infof("Routing table peers (%d): %v", mt.RelayStatus())
+
 			time.Sleep(10 * time.Second)
 		}
 	}()

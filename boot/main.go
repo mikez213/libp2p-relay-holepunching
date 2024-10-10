@@ -29,8 +29,6 @@ var relayerPrivateKeys = []string{
 	// pid: 12D3KooWDKYjXDDgSGzhEYWYtDvfP9pMtGNY1vnAwRsSp2CwCWHL
 }
 
-const defaultRelayerKeyIndex = 0
-
 func RelayIdentity(keyIndex int) (libp2p.Option, error) {
 	if keyIndex < 0 || keyIndex >= len(relayerPrivateKeys) {
 		return nil, fmt.Errorf("invalid key index: %d", keyIndex)
@@ -51,12 +49,12 @@ func RelayIdentity(keyIndex int) (libp2p.Option, error) {
 }
 
 func main() {
-	logging.SetAllLoggers(logging.LevelWarn)
+	logging.SetAllLoggers(logging.LevelInfo)
 	logging.SetLogLevel("bootstrap", "debug")
 
 	listenPort := flag.Int("port", 1237, "TCP port to listen on")
 	bootstrapPeers := flag.String("bootstrap", "", "Comma separated bootstrap peer multiaddrs")
-	keyIndex := flag.Int("key", defaultRelayerKeyIndex, "Relayer private key index")
+	keyIndex := flag.Int("key", 0, "Relayer private key index")
 	flag.Parse()
 
 	relayOpt, err := RelayIdentity(*keyIndex)
@@ -138,7 +136,7 @@ func main() {
 		for {
 			peers := kademliaDHT.RoutingTable().ListPeers()
 			log.Infof("routing table peers (%d): %v", len(peers), peers)
-			time.Sleep(10 * time.Second)
+			time.Sleep(20 * time.Second)
 		}
 	}()
 
