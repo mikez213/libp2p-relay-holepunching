@@ -60,7 +60,7 @@ func RelayIdentity(keyIndex int) (libp2p.Option, error) {
 }
 
 func main() {
-	logging.SetAllLoggers(logging.LevelInfo)
+	logging.SetAllLoggers(logging.LevelWarn)
 	logging.SetLogLevel("relaylog", "debug")
 
 	listenPort := flag.Int("port", 1237, "TCP port to listen on")
