@@ -19,6 +19,7 @@ import (
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 	"github.com/libp2p/go-libp2p/p2p/host/autorelay"
+	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -177,38 +178,38 @@ func parseBootstrap(bootstrapAddrs []string) []peer.AddrInfo {
 	return bootstrapPeers
 }
 
-func putRelayedAddress(ctx context.Context, kademliaDHT *dht.IpfsDHT, relayaddr multiaddr.Multiaddr) {
-	key := fmt.Sprintf("/pk/%s", kademliaDHT.Host().ID())
+// func putRelayedAddress(ctx context.Context, kademliaDHT *dht.IpfsDHT, relayaddr multiaddr.Multiaddr) {
+// 	key := fmt.Sprintf("/pk/%s", kademliaDHT.Host().ID())
 
-	value := []byte(relayaddr.String())
+// 	value := []byte(relayaddr.String())
 
-	if err := kademliaDHT.PutValue(ctx, key, value); err != nil {
-		log.Errorf("failed to announce relayed address %s: %v", relayaddr, err)
-		log.Errorf("key, value: %s, %s", key, value)
-	} else {
-		log.Infof("announced relayed address: %s with key: %s", relayaddr, key)
-	}
-}
+// 	if err := kademliaDHT.PutValue(ctx, key, value); err != nil {
+// 		log.Errorf("failed to announce relayed address %s: %v", relayaddr, err)
+// 		log.Errorf("key, value: %s, %s", key, value)
+// 	} else {
+// 		log.Infof("announced relayed address: %s with key: %s", relayaddr, key)
+// 	}
+// }
 
-func getRelayedAddress(ctx context.Context, kademliaDHT *dht.IpfsDHT, targetPeerID peer.ID) (multiaddr.Multiaddr, error) {
-	key := fmt.Sprintf("/pk/%s", targetPeerID)
+// func getRelayedAddress(ctx context.Context, kademliaDHT *dht.IpfsDHT, targetPeerID peer.ID) (multiaddr.Multiaddr, error) {
+// 	key := fmt.Sprintf("/pk/%s", targetPeerID)
 
-	value, err := kademliaDHT.GetValue(ctx, key)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get relayed address for %s: %w", targetPeerID, err)
-	}
+// 	value, err := kademliaDHT.GetValue(ctx, key)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to get relayed address for %s: %w", targetPeerID, err)
+// 	}
 
-	relayedAddr, err := multiaddr.NewMultiaddr(string(value))
-	if err != nil {
-		return nil, fmt.Errorf("invalid relayed address '%s': %w", value, err)
-	}
+// 	relayedAddr, err := multiaddr.NewMultiaddr(string(value))
+// 	if err != nil {
+// 		return nil, fmt.Errorf("invalid relayed address '%s': %w", value, err)
+// 	}
 
-	return relayedAddr, err
-}
+// 	return relayedAddr, err
+// }
 
 func main() {
-	// logging.SetAllLoggers(logging.LevelDebug)
-	logging.SetAllLoggers(logging.LevelInfo)
+	logging.SetAllLoggers(logging.LevelDebug)
+	// logging.SetAllLoggers(logging.LevelInfo)
 	// logging.SetLogLevel("dht", "error") // supresss warn and info
 	logging.SetLogLevel("chatnode", "debug")
 
@@ -329,7 +330,12 @@ func main() {
 
 	time.Sleep(5 * time.Second)
 
-	putRelayedAddress(ctx, kademliaDHT, relayaddr)
+	_, err = client.Reserve(context.Background(), host, *relayInfo)
+	if err != nil {
+		log.Info("unreachable2 failed to receive a relay reservation from relay1. %v", err)
+		return
+	}
+	// putRelayedAddress(ctx, kademliaDHT, relayaddr)
 
 	log.Info("announcing ourselves")
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)

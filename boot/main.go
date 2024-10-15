@@ -134,9 +134,10 @@ func main() {
 
 	go func() {
 		for {
+			time.Sleep(20 * time.Second)
+			kademliaDHT.RefreshRoutingTable() //has a channel to block, but unused for now
 			peers := kademliaDHT.RoutingTable().ListPeers()
 			log.Infof("routing table peers (%d): %v", len(peers), peers)
-			time.Sleep(20 * time.Second)
 		}
 	}()
 

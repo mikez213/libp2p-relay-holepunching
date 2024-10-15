@@ -60,7 +60,7 @@ func RelayIdentity(keyIndex int) (libp2p.Option, error) {
 }
 
 func main() {
-	logging.SetAllLoggers(logging.LevelWarn)
+	logging.SetAllLoggers(logging.LevelDebug)
 	logging.SetLogLevel("relaylog", "debug")
 
 	listenPort := flag.Int("port", 1237, "TCP port to listen on")
@@ -154,12 +154,13 @@ func main() {
 
 	go func() {
 		for {
+			time.Sleep(10 * time.Second)
+
 			kademliaDHT.RefreshRoutingTable() //has a channel to block, but unused for now
 			peers := kademliaDHT.RoutingTable().ListPeers()
 			log.Infof("Routing table peers (%d): %v", len(peers), peers)
 			// log.Infof("Routing table peers (%d): %v", mt.RelayStatus())
 
-			time.Sleep(10 * time.Second)
 		}
 	}()
 
