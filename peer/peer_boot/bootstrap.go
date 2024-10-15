@@ -15,14 +15,8 @@ import (
 
 var log = logging.Logger("bootlog")
 
-// relayer keys
 var relayerPrivateKeys = []string{
 	"CAESQAA7xVQKsQ5VAC5ge+XsixR7YnDkzuHa4nrY8xWXGK3fo9yN1Eaiat9Vn1iwaVQDqTjywVP303ojVLxXcQ9ze4E=",
-	// pid: 12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n
-	"CAESQMCYbjRpXBDUnIpDyqY+mA3n7z9gF3CaggWTknd90LauHUcz8ldNtlUchFATmMSE1r/NMnSpEBbLvzWQKq3N45s=",
-	// pid: 12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p
-	"CAESQB1Y1Li0Wd4KcvMvbv5/+CTG79axzl3R8yTuzWOckMgmNAzZqxim5E/7e9mgd87FTMPQNHqiItqTFwHJeMxr0H8=",
-	// pid: 12D3KooWDKYjXDDgSGzhEYWYtDvfP9pMtGNY1vnAwRsSp2CwCWHL
 }
 
 const defaultRelayerKeyIndex = 0
@@ -69,35 +63,37 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Infof("bootstrap up pid %s", host.ID())
-	log.Info("listening on:")
+	log.Infof("Bootstrap node up with PID: %s", host.ID())
+	log.Info("Listening on:")
 	for _, addr := range host.Addrs() {
 		log.Infof("%s/p2p/%s", addr, host.ID())
 	}
 
-	kademliaDHT, err := dht.New(ctx, host, dht.Mode(dht.ModeServer))
+	kademliaDHT, err := dht.New(ctx, host)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Debug("bootstrapping dht")
+	log.Debug("Bootstrapping DHT")
 	if err := kademliaDHT.Bootstrap(ctx); err != nil {
 		log.Fatal(err)
 	}
 
 	time.Sleep(2 * time.Second)
 
-	log.Infof("running pid %s", host.ID())
-	log.Info("use multiaddrs to connect:")
+	log.Infof("Running PID: %s", host.ID())
+	log.Info("Use multiaddrs to connect:")
 	for _, addr := range host.Addrs() {
 		log.Infof("%s/p2p/%s", addr, host.ID())
 	}
 
 	go func() {
 		for {
-			kademliaDHT.RefreshRoutingTable()
+			if err := kademliaDHT.RefreshRoutingTable(); err != nil {
+				log.Errorf("Error refreshing routing table: %v", err)
+			}
 			peers := kademliaDHT.RoutingTable().ListPeers()
-			log.Infof("routing table peers (%d): %v", len(peers), peers)
+			log.Infof("Routing table peers (%d): %v", len(peers), peers)
 			time.Sleep(10 * time.Second)
 		}
 	}()
