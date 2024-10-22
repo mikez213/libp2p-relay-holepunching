@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -90,6 +91,9 @@ func init() {
 		}
 		bootstrapPeerIDs = append(bootstrapPeerIDs, pid)
 	}
+
+	logging.SetAllLoggers(logging.LevelInfo)
+	logging.SetLogLevel("chatnode", "debug")
 }
 
 func isBootstrapPeer(peerID peer.ID) bool {
@@ -101,57 +105,93 @@ func isBootstrapPeer(peerID peer.ID) bool {
 	return false
 }
 
-func pingPeer(ctx context.Context, host host.Host, pid peer.ID, rendezvous string, log logging.EventLogger, connectedPeers map[peer.ID]bool) {
+func pingPeer(ctx context.Context, host host.Host, pid peer.ID, rendezvous string, connectedPeers map[peer.ID]bool) {
+	log.Infof("attempting to open stream to %s", pid)
+
 	stream, err := host.NewStream(ctx, pid, protocol.ID(rendezvous))
 	if err != nil {
 		log.Errorf("failed to open stream to %s: %v", pid, err)
 		return
 	}
+	log.Infof("stream to %s opened successfully", pid)
+
+	// Ensure we close the stream after we are done
 	defer stream.Close()
 
+	// Send PING message
 	if _, err := fmt.Fprintf(stream, "PING\n"); err != nil {
 		log.Errorf("failed to send ping to %s: %v", pid, err)
 		return
 	}
-	log.Infof("sent PING to %s", pid)
+	log.Infof("PING message sent to %s", pid)
 
+	// Read PONG response
 	buf := make([]byte, 5)
-	if _, err := stream.Read(buf); err != nil {
-		log.Errorf("failed to read PONG from %s: %v", pid, err)
+	n, err := stream.Read(buf)
+	if err != nil {
+		if err == io.EOF {
+			log.Infof("stream closed by peer %s after sending EOF", pid)
+		} else {
+			log.Errorf("failed to read PONG from %s: %v", pid, err)
+		}
 		return
 	}
 
-	if string(buf) == "PONG\n" {
-		log.Infof("got PONG from %s", pid)
+	response := string(buf[:n])
+	log.Infof("Received message from %s: %s", pid, response)
+
+	// Check if the message is PONG
+	if response == "PONG\n" {
+		log.Infof("Received valid PONG from %s", pid)
 		connectedPeers[pid] = true
 	} else {
-		log.Warnf("unexpected resp from %s: %s", pid, string(buf))
+		log.Warnf("Unexpected response from %s: %s", pid, response)
 	}
 }
 
 func handleStream(stream network.Stream) {
-	log.Infof("got new stream from %s", stream.Conn().RemotePeer())
+	peerID := stream.Conn().RemotePeer()
+	log.Infof("got new stream from %s", peerID)
 
 	defer stream.Close()
 
 	buf := make([]byte, 5)
-	_, err := stream.Read(buf)
-	if err != nil {
-		log.Errorf("err reading from stream: %v", err)
-		return
-	}
+	maxRetry := 15
+	retry := 0
 
-	received := string(buf)
-	log.Infof("got msg: %s from %s", received, stream.Conn().RemotePeer())
-
-	if received == "PING\n" {
-		if _, err = fmt.Fprintf(stream, "PONG\n"); err != nil {
-			log.Errorf("err writing PONG to stream: %v", err)
-			return
+	for {
+		log.Infof("attempting to read from stream, attempt %d", retry)
+		n, err := stream.Read(buf)
+		if err != nil {
+			if err == io.EOF && retry < maxRetry {
+				log.Warnf("received EOF from %s, retrying read attempt %d/%d", peerID, retry, maxRetry)
+				retry++
+				time.Sleep(1 * time.Second)
+				continue
+			} else if err == io.EOF {
+				log.Errorf("stream closed by peer %s after receiving EOF????", peerID)
+				return
+			} else {
+				log.Errorf("error reading from stream: %v", err)
+				return
+			}
 		}
-		log.Infof("sent PONG to %s", stream.Conn().RemotePeer())
-	} else {
-		log.Infof("unexpected msg: %s from %s", received, stream.Conn().RemotePeer())
+
+		received := string(buf[:n])
+		log.Infof("received message: %s from %s", received, peerID)
+
+		if received == "PING\n" {
+			log.Infof("received PING from %s, responding with PONG", peerID)
+			if _, err = fmt.Fprintf(stream, "PONG\n"); err != nil {
+				log.Errorf("error writing PONG to stream: %v", err)
+				return
+			}
+			log.Infof("sent PONG to %s", peerID)
+		} else {
+			log.Warnf("unexpected message from %s: %s", peerID, received)
+		}
+
+		break
 	}
 }
 
@@ -178,62 +218,32 @@ func parseBootstrap(bootstrapAddrs []string) []peer.AddrInfo {
 	return bootstrapPeers
 }
 
-// func putRelayedAddress(ctx context.Context, kademliaDHT *dht.IpfsDHT, relayaddr multiaddr.Multiaddr) {
-// 	key := fmt.Sprintf("/pk/%s", kademliaDHT.Host().ID())
-
-// 	value := []byte(relayaddr.String())
-
-// 	if err := kademliaDHT.PutValue(ctx, key, value); err != nil {
-// 		log.Errorf("failed to announce relayed address %s: %v", relayaddr, err)
-// 		log.Errorf("key, value: %s, %s", key, value)
-// 	} else {
-// 		log.Infof("announced relayed address: %s with key: %s", relayaddr, key)
-// 	}
-// }
-
-// func getRelayedAddress(ctx context.Context, kademliaDHT *dht.IpfsDHT, targetPeerID peer.ID) (multiaddr.Multiaddr, error) {
-// 	key := fmt.Sprintf("/pk/%s", targetPeerID)
-
-// 	value, err := kademliaDHT.GetValue(ctx, key)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to get relayed address for %s: %w", targetPeerID, err)
-// 	}
-
-// 	relayedAddr, err := multiaddr.NewMultiaddr(string(value))
-// 	if err != nil {
-// 		return nil, fmt.Errorf("invalid relayed address '%s': %w", value, err)
-// 	}
-
-// 	return relayedAddr, err
-// }
-
-func main() {
-	logging.SetAllLoggers(logging.LevelDebug)
-	// logging.SetAllLoggers(logging.LevelInfo)
-	// logging.SetLogLevel("dht", "error") // supresss warn and info
-	logging.SetLogLevel("chatnode", "debug")
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+func parseCommandLineArgs() (string, int, []string) {
 	if len(os.Args) < 3 {
 		log.Fatal("need a bootstrap node and relay")
 	}
 
 	relayAddrStr := os.Args[1]
-	keyIndex := os.Args[2]
+	keyIndexStr := os.Args[2]
 	bootstrapAddrs := os.Args[3:]
 
-	keyIndexInt, err := strconv.Atoi(keyIndex)
+	keyIndexInt, err := strconv.Atoi(keyIndexStr)
 	if err != nil {
-		log.Fatalf("index error:", err)
+		log.Fatalf("index error: %v", err)
 	}
 
-	nodeOpt, err := RelayIdentity(keyIndexInt)
+	return relayAddrStr, keyIndexInt, bootstrapAddrs
+}
+
+func getLibp2pIdentity(keyIndex int) libp2p.Option {
+	nodeOpt, err := RelayIdentity(keyIndex)
 	if err != nil {
 		log.Fatalf("relay identity error: %v", err)
 	}
+	return nodeOpt
+}
 
+func parseRelayAddress(relayAddrStr string) *peer.AddrInfo {
 	relayMaddr, err := multiaddr.NewMultiaddr(relayAddrStr)
 	if err != nil {
 		log.Fatalf("bad relay address '%s': %v", relayAddrStr, err)
@@ -246,34 +256,56 @@ func main() {
 
 	log.Info("relay info: ", relayInfo.ID, " address", relayInfo.Addrs)
 
-	//parse boot string
-	bootstrapPeers := parseBootstrap(bootstrapAddrs)
+	return relayInfo
+}
 
-	if len(bootstrapPeers) == 0 {
-		log.Fatal("no valid bootstrap addrs")
-	}
-	// relayMaddr, err := multiaddr.NewMultiaddr(relayAddrStr)
-	// if err != nil {
-	// 	log.Fatalf("Invalid relay address '%s': %v", relayAddrStr, err)
-	// }
-
-	// relayInfo, err := peer.AddrInfoFromP2pAddr(relayMaddr)
-	// if err != nil {
-	// 	log.Fatalf("Failed to parse relay peer info from '%s': %v", relayAddrStr, err)
-	// }
-
+func createHost(ctx context.Context, nodeOpt libp2p.Option, relayInfo *peer.AddrInfo) (host.Host, *dht.IpfsDHT) {
 	mt := autorelay.NewMetricsTracer()
-
 	var kademliaDHT *dht.IpfsDHT
+
+	// ListenAddrs := func(cfg *config.Config) error {
+	// 	addrs := []string{
+	// 		// fmt.Sprintf("/ip4/0.0.0.0/tcp/", listenPort),
+	// 		// "/ip4/0.0.0.0/tcp/9001",
+	// 		// "/ip4/172.17.0.2/tcp/38043",
+	// 		// "/ip4/172.20.0.2/tcp/38043",
+	// 		"/ip4/0.0.0.0/tcp/0",
+	// 		// "/ip4/0.0.0.0/udp/0/quic-v1",
+	// 		// "/ip4/0.0.0.0/udp/0/quic-v1/webtransport",
+	// 		// "/ip4/0.0.0.0/udp/0/webrtc-direct",
+	// 		"/ip6/::/tcp/0",
+	// 		// "/ip6/::/udp/0/quic-v1",
+	// 		// "/ip6/::/udp/0/quic-v1/webtransport",
+	// 		// "/ip6/::/udp/0/webrtc-direct",
+	// 	}
+	// 	listenAddrs := make([]multiaddr.Multiaddr, 0, len(addrs))
+
+	// 	log.Info(" * Addresses %v", listenAddrs)
+
+	// 	for _, s := range addrs {
+	// 		addr, err := multiaddr.NewMultiaddr(s)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		listenAddrs = append(listenAddrs, addr)
+	// 	}
+
+	// 	log.Info(" * Addresses %v", listenAddrs)
+
+	// 	return cfg.Apply(libp2p.ListenAddrs(listenAddrs...))
+	// }
+
 	host, err := libp2p.New(
 		nodeOpt,
-		libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"),
+		// ListenAddrs,
+		// libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"),
 		libp2p.EnableRelay(),
 		libp2p.EnableAutoRelayWithStaticRelays([]peer.AddrInfo{*relayInfo}, autorelay.WithMetricsTracer(mt)),
 		libp2p.NATPortMap(),
-		libp2p.EnableRelayService(),
+		// libp2p.EnableRelayService(), // we are not a relay server
 		libp2p.EnableNATService(),
 		libp2p.EnableAutoNATv2(),
+		libp2p.ForceReachabilityPrivate(),
 		libp2p.EnableHolePunching(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
 			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeClient))
@@ -286,16 +318,14 @@ func main() {
 
 	log.Infof("host created, we are %s", host.ID())
 
-	rendezvousString := "meetme"
-	host.SetStreamHandler(protocol.ID(rendezvousString), handleStream)
+	return host, kademliaDHT
+}
 
-	// connect to the relay node
-	log.Infof("connecting to relay node %s", relayInfo.ID)
-	if err := host.Connect(ctx, *relayInfo); err != nil {
-		log.Fatalf("failed to connect to relay node %s: %v", relayInfo.ID, err)
-	}
-	log.Infof("connected to relay node %s", relayInfo.ID)
+func setupStreamHandler(host host.Host, rend string) {
+	host.SetStreamHandler(protocol.ID(rend), handleStream)
+}
 
+func connectToBootstrapPeers(ctx context.Context, host host.Host, bootstrapPeers []peer.AddrInfo) {
 	for _, peerInfo := range bootstrapPeers {
 		log.Infof("connecting to bootstrap node %s", peerInfo.ID)
 		if err := host.Connect(ctx, peerInfo); err != nil {
@@ -304,7 +334,9 @@ func main() {
 		}
 		log.Infof("connected to bootstrap node %s", peerInfo.ID)
 	}
+}
 
+func bootstrapDHT(ctx context.Context, kademliaDHT *dht.IpfsDHT) {
 	if kademliaDHT == nil {
 		log.Fatal("dht not init properly")
 	}
@@ -312,100 +344,154 @@ func main() {
 	if err := kademliaDHT.Bootstrap(ctx); err != nil {
 		log.Fatalf("failed to bootstrap dht: %v", err)
 	}
+}
 
-	relayaddr, err := multiaddr.NewMultiaddr("/p2p/" + relayInfo.ID.String() + "/p2p-circuit/p2p/" + host.ID().String())
+func connectToRelay(ctx context.Context, host host.Host, relayInfo *peer.AddrInfo) {
+	log.Infof("connecting to relay node %s", relayInfo.ID)
+	if err := host.Connect(ctx, *relayInfo); err != nil {
+		log.Fatalf("failed to connect to relay node %s: %v", relayInfo.ID, err)
+	}
+	log.Infof("connected to relay node %s", relayInfo.ID)
+}
+
+func constructRelayAddresses(host host.Host, relayInfo *peer.AddrInfo) []peer.AddrInfo {
+
+	var relayAddresses []peer.AddrInfo
+
+	for _, addr := range relayInfo.Addrs {
+		fullRelayAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p-circuit/p2p/%s", host.ID()))
+		if err != nil {
+			log.Errorf("failed to create relay circuit multiaddr: %v", err)
+			continue
+		}
+		log.Infof("created relay circuit multiaddr: %s", fullRelayAddr)
+
+		combinedAddr := addr.Encapsulate(fullRelayAddr)
+		log.Infof("final addr: %s", combinedAddr)
+
+		relayAddrInfo := peer.AddrInfo{
+			ID:    relayInfo.ID,
+			Addrs: []multiaddr.Multiaddr{combinedAddr},
+		}
+
+		relayAddresses = append(relayAddresses, relayAddrInfo)
+	}
+
+	log.Infof("we are hopefully listening on following relay addresses:")
+	for _, addrInfo := range relayAddresses {
+		for _, addr := range addrInfo.Addrs {
+			fmt.Printf("%s/p2p/%s\n", addr, host.ID())
+		}
+	}
+
+	return relayAddresses
+}
+
+func reserveRelay(ctx context.Context, host host.Host, relayInfo *peer.AddrInfo) {
+	_, err := client.Reserve(ctx, host, *relayInfo)
 	if err != nil {
-		log.Error(err)
+		log.Infof("failed to receive a relay reservation from relay %v", err)
 		return
 	}
-	nodeRelayInfo := peer.AddrInfo{
-		ID:    host.ID(),
-		Addrs: []multiaddr.Multiaddr{relayaddr},
-	}
+}
 
-	fmt.Println("we are hopefully listening on following addresses")
-	for _, addr := range nodeRelayInfo.Addrs {
-		fmt.Printf("%s\n", addr)
-	}
-
-	time.Sleep(5 * time.Second)
-
-	_, err = client.Reserve(context.Background(), host, *relayInfo)
-	if err != nil {
-		log.Info("unreachable2 failed to receive a relay reservation from relay1. %v", err)
-		return
-	}
-	// putRelayedAddress(ctx, kademliaDHT, relayaddr)
-
+func announceSelf(ctx context.Context, kademliaDHT *dht.IpfsDHT, rend string) {
 	log.Info("announcing ourselves")
 	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
-	dutil.Advertise(ctx, routingDiscovery, rendezvousString)
+	dutil.Advertise(ctx, routingDiscovery, rend)
 	log.Info("successfully announced")
+}
 
+func searchForPeers(ctx context.Context, kademliaDHT *dht.IpfsDHT, rend string) (<-chan peer.AddrInfo, error) {
 	log.Info("searching for peers")
-	peerChan, err := routingDiscovery.FindPeers(ctx, rendezvousString)
+	routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
+	peerChan, err := routingDiscovery.FindPeers(ctx, rend)
 	if err != nil {
 		log.Fatalf("failed to find peers: %v", err)
 	}
+	return peerChan, nil
+}
 
-	connectedPeers := make(map[peer.ID]bool)
+func containsPeer(relayAddresses []peer.AddrInfo, pid peer.ID) bool {
+	for _, relayAddrInfo := range relayAddresses {
+		if relayAddrInfo.ID == pid {
+			return true
+		}
+	}
+	return false
+}
 
-	for p := range peerChan {
+func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.AddrInfo, pChan <-chan peer.AddrInfo, connectedPeers map[peer.ID]bool, rend string) {
+	for p := range pChan {
 		if p.ID == host.ID() {
-			fmt.Printf("host.ID(): %v\n", host.ID())
+			fmt.Printf("host.ID: %v\n", host.ID())
 			continue
 		}
-		if isBootstrapPeer(p.ID) || p.ID == relayInfo.ID {
-			fmt.Printf("isBootstrapPeer(p.ID): %v\n", isBootstrapPeer(p.ID))
-			fmt.Printf("isBootstrapPeer(p.ID): %v\n", relayInfo.ID)
+		if isBootstrapPeer(p.ID) || containsPeer(relayAddresses, p.ID) {
+			fmt.Printf("isBootstrapPeer: %v\n", isBootstrapPeer(p.ID))
+			fmt.Printf("isRelayPeer: %v\n", containsPeer(relayAddresses, p.ID))
 			continue
 		}
 
 		if connectedPeers[p.ID] {
-			fmt.Printf("connectedPeers[p.ID]: %v\n", connectedPeers[p.ID])
+			fmt.Printf("connectedPeers: %v\n", connectedPeers[p.ID])
 			continue
 		}
 
 		log.Infof("!!!!!\nfound peer:\n%v", p)
 
-		// Try directly
 		err := host.Connect(ctx, p)
 		if err != nil {
-			log.Warningf("Failed to connect to peer directly %s : %v", p.ID, err)
-			// Try to connect via relay
-			relayAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p/%s/p2p-circuit/p2p/%s", relayInfo.ID, p.ID))
+			log.Warningf("failed to connect to peer directly %s : %v", p.ID, err)
+			for _, relayAddrInfo := range relayAddresses {
+				relayAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p-circuit/p2p/%s", p.ID))
+				if err != nil {
+					log.Errorf("failed to create relay circuit multiaddr: %v", err)
+					continue
+				}
+
+				combinedRelayAddr := relayAddrInfo.Addrs[0].Encapsulate(relayAddr)
+
+				p.Addrs = append(p.Addrs, combinedRelayAddr)
+
+				log.Infof("trying to connect to peer %s via relay %s", p.ID, relayAddrInfo.ID)
+				log.Infof("relay address: %s", combinedRelayAddr)
+
+				if err := host.Connect(ctx, relayAddrInfo); err != nil {
+					log.Warningf("failed to connect to peer %s via relay %s: %v", p.ID, relayAddrInfo.ID, err)
+					continue
+				}
+
+				stream, err := host.NewStream(ctx, p.ID, protocol.ID(rend))
+				if err != nil {
+					log.Warningf("failed to open stream to peer %s: %v", p.ID, err)
+					continue
+				}
+
+				log.Infof("connected to %s via relay %s", p.ID, relayAddrInfo.ID)
+				stream.Close()
+
+				connectedPeers[p.ID] = true
+				break
+			}
+		} else {
+			stream, err := host.NewStream(ctx, p.ID, protocol.ID(rend))
 			if err != nil {
-				log.Errorf("failed to construct relay address: %v", err)
+				log.Warningf("failed to open stream to peer %s: %v", p.ID, err)
 				continue
 			}
-			p.Addrs = []multiaddr.Multiaddr{relayAddr}
-			log.Infof("trying to connect to peer %s via relay", p.ID)
-			log.Infof("addr is %s", p.Addrs)
 
-			if err := host.Connect(ctx, p); err != nil {
-				log.Warningf("failed to connect to peer %s via relay: %v", p.ID, err)
-				continue
-			}
-			// if err := connectRelayedAddress(ctx, host, kademliaDHT, p.ID); err != nil {
-			// 	log.Warningf("failed to connect to peer %s via relay: %v", p.ID, err)
-			// 	continue
-			// }
+			log.Infof("connected to %s", p.ID)
+
+			stream.Close()
+
+			connectedPeers[p.ID] = true
 		}
-
-		stream, err := host.NewStream(ctx, p.ID, protocol.ID(rendezvousString))
-		if err != nil {
-			log.Warningf("failed to open stream to peer %s: %v", p.ID, err)
-			continue
-		}
-
-		log.Infof("connected to %s", p.ID)
-
-		stream.Close()
-
-		connectedPeers[p.ID] = true
 	}
+}
 
-	ticker := time.NewTicker(5 * time.Second)
+func setupPeriodicPing(ctx context.Context, host host.Host, relayInfo *peer.AddrInfo, connectedPeers map[peer.ID]bool, rend string) {
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	go func() {
@@ -421,19 +507,67 @@ func main() {
 					continue
 				}
 
-				go pingPeer(ctx, host, peerID, rendezvousString, log, connectedPeers)
+				go pingPeer(ctx, host, peerID, rend, connectedPeers)
 			}
 		}
 	}()
+}
 
+func setupDHTRefresh(kademliaDHT *dht.IpfsDHT) {
 	go func() {
 		for {
-			kademliaDHT.RefreshRoutingTable() //has a channel to block, but unused for now
+			kademliaDHT.RefreshRoutingTable()
 			peers := kademliaDHT.RoutingTable().ListPeers()
 			log.Infof("Routing table peers (%d): %v", len(peers), peers)
-			time.Sleep(5 * time.Second)
+			time.Sleep(30 * time.Second)
 		}
 	}()
+}
+
+func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	relayAddrStr, keyIndexInt, bootstrapAddrs := parseCommandLineArgs()
+
+	nodeOpt := getLibp2pIdentity(keyIndexInt)
+
+	relayInfo := parseRelayAddress(relayAddrStr)
+
+	bootstrapPeers := parseBootstrap(bootstrapAddrs)
+	if len(bootstrapPeers) == 0 {
+		log.Fatal("no valid bootstrap addrs")
+	}
+
+	host, kademliaDHT := createHost(ctx, nodeOpt, relayInfo)
+
+	rend := "meetme"
+	setupStreamHandler(host, rend)
+
+	connectToBootstrapPeers(ctx, host, bootstrapPeers)
+	bootstrapDHT(ctx, kademliaDHT)
+	connectToRelay(ctx, host, relayInfo)
+
+	relayAddresses := constructRelayAddresses(host, relayInfo)
+
+	log.Infof("waiting 10 sec for stablity")
+	time.Sleep(10 * time.Second)
+
+	reserveRelay(ctx, host, relayInfo)
+
+	announceSelf(ctx, kademliaDHT, rend)
+
+	peerChan, err := searchForPeers(ctx, kademliaDHT, rend)
+	if err != nil {
+		log.Fatalf("failed to find peers: %v", err)
+	}
+
+	connectedPeers := make(map[peer.ID]bool)
+	connectToPeers(ctx, host, relayAddresses, peerChan, connectedPeers, rend)
+
+	setupPeriodicPing(ctx, host, relayInfo, connectedPeers, rend)
+
+	setupDHTRefresh(kademliaDHT)
 
 	select {}
 }

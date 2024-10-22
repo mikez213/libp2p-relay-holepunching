@@ -9,6 +9,7 @@ import (
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 
@@ -59,24 +60,66 @@ func RelayIdentity(keyIndex int) (libp2p.Option, error) {
 	return libp2p.Identity(privKey), nil
 }
 
-func main() {
-	logging.SetAllLoggers(logging.LevelDebug)
+func initializeLogger() {
+	logging.SetAllLoggers(logging.LevelInfo)
+	// logging.SetAllLoggers(logging.LevelInfo)
 	logging.SetLogLevel("relaylog", "debug")
+}
 
+func parseCommandLineArgs() (int, string, int) {
 	listenPort := flag.Int("port", 1237, "TCP port to listen on")
 	bootstrapPeers := flag.String("bootstrap", "", "Comma separated bootstrap peer multiaddrs")
 	keyIndex := flag.Int("key", 3, "Relayer private key index") //relay keys start at 3
 	flag.Parse()
 
-	relayOpt, err := RelayIdentity(*keyIndex)
+	return *listenPort, *bootstrapPeers, *keyIndex
+}
+
+func getRelayIdentity(keyIndex int) libp2p.Option {
+	relayOpt, err := RelayIdentity(keyIndex)
 	if err != nil {
 		log.Fatalf("relay identity error: %v", err)
 	}
+	return relayOpt
+}
 
-	ctx := context.Background()
+func createHost(ctx context.Context, relayOpt libp2p.Option, listenPort int) host.Host {
+	// ListenAddrs := func(cfg *config.Config) error {
+	// 	addrs := []string{
+	// 		fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", listenPort),
+	// 		// "/ip4/0.0.0.0/tcp/9001",
+	// 		// "/ip4/172.17.0.2/tcp/38043",
+	// 		// "/ip4/172.20.0.2/tcp/38043",
+	// 		// "/ip4/0.0.0.0/tcp/0",
+	// 		// "/ip4/0.0.0.0/udp/0/quic-v1",
+	// 		// "/ip4/0.0.0.0/udp/0/quic-v1/webtransport",
+	// 		// "/ip4/0.0.0.0/udp/0/webrtc-direct",
+	// 		"/ip6/::/tcp/0",
+	// 		// "/ip6/::/udp/0/quic-v1",
+	// 		// "/ip6/::/udp/0/quic-v1/webtransport",
+	// 		// "/ip6/::/udp/0/webrtc-direct",
+	// 	}
+	// 	listenAddrs := make([]multiaddr.Multiaddr, 0, len(addrs))
+
+	// 	log.Info(" * Addresses %v", listenAddrs)
+
+	// 	for _, s := range addrs {
+	// 		addr, err := multiaddr.NewMultiaddr(s)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		listenAddrs = append(listenAddrs, addr)
+	// 	}
+
+	// 	log.Info(" * Addresses %v", listenAddrs)
+
+	// 	return cfg.Apply(libp2p.ListenAddrs(listenAddrs...))
+	// }
+
 	host, err := libp2p.New(
 		relayOpt,
-		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", *listenPort)),
+		// ListenAddrs,
+		// libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", listenPort)),
 		libp2p.EnableRelay(),
 		libp2p.EnableRelayService(),
 		libp2p.NATPortMap(),
@@ -88,33 +131,44 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	mt := relay.NewMetricsTracer()
+	return host
+}
 
-	_, err = relay.New(host, relay.WithInfiniteLimits(), relay.WithMetricsTracer(mt))
+func setupRelayService(host host.Host) {
+	mt := relay.NewMetricsTracer()
+	_, err := relay.New(host, relay.WithInfiniteLimits(), relay.WithMetricsTracer(mt))
 	if err != nil {
-		log.Info("Failed to instantiate the relay: %v", err)
+		log.Infof("Failed to instantiate the relay: %v", err)
 		return
 	}
+}
 
+func logHostInfo(host host.Host) {
 	log.Infof("relay node is running Peer ID: %s", host.ID())
 	log.Info("Listening on:")
 	for _, addr := range host.Addrs() {
 		log.Infof("%s/p2p/%s", addr, host.ID())
 	}
+}
 
+func createDHT(ctx context.Context, host host.Host) *dht.IpfsDHT {
 	kademliaDHT, err := dht.New(ctx, host, dht.Mode(dht.ModeServer))
 	if err != nil {
 		log.Fatal(err)
 	}
+	return kademliaDHT
+}
 
-	// seperate this into one boot function and only need to connect once
+func bootstrapDHT(ctx context.Context, kademliaDHT *dht.IpfsDHT) {
 	log.Debug("bootstrapping dht")
 	if err := kademliaDHT.Bootstrap(ctx); err != nil {
 		log.Fatal(err)
 	}
+}
 
-	if *bootstrapPeers != "" {
-		peerAddrs := strings.Split(*bootstrapPeers, ",")
+func connectToBootstrapPeers(ctx context.Context, host host.Host, bootstrapPeers string) {
+	if bootstrapPeers != "" {
+		peerAddrs := strings.Split(bootstrapPeers, ",")
 		for _, addr := range peerAddrs {
 			addr = strings.TrimSpace(addr)
 			if addr == "" {
@@ -143,26 +197,48 @@ func main() {
 			log.Infof("connected to bootstrap peer %s", peerInfo.ID)
 		}
 	}
+}
 
-	time.Sleep(2 * time.Second)
-
-	log.Infof("running pid %s", host.ID())
-	log.Info("use multiaddrs to connect:")
-	for _, addr := range host.Addrs() {
-		log.Infof("%s/p2p/%s", addr, host.ID())
-	}
-
+func setupDHTRefresh(kademliaDHT *dht.IpfsDHT) {
 	go func() {
 		for {
 			time.Sleep(10 * time.Second)
 
-			kademliaDHT.RefreshRoutingTable() //has a channel to block, but unused for now
+			kademliaDHT.RefreshRoutingTable()
 			peers := kademliaDHT.RoutingTable().ListPeers()
 			log.Infof("Routing table peers (%d): %v", len(peers), peers)
 			// log.Infof("Routing table peers (%d): %v", mt.RelayStatus())
 
 		}
 	}()
+}
+
+func main() {
+	initializeLogger()
+
+	listenPort, bootstrapPeers, keyIndex := parseCommandLineArgs()
+
+	relayOpt := getRelayIdentity(keyIndex)
+
+	ctx := context.Background()
+
+	host := createHost(ctx, relayOpt, listenPort)
+
+	setupRelayService(host)
+
+	logHostInfo(host)
+
+	kademliaDHT := createDHT(ctx, host)
+
+	bootstrapDHT(ctx, kademliaDHT)
+
+	connectToBootstrapPeers(ctx, host, bootstrapPeers)
+
+	time.Sleep(5 * time.Second)
+
+	logHostInfo(host)
+
+	setupDHTRefresh(kademliaDHT)
 
 	select {}
 }
