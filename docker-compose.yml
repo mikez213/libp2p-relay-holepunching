@@ -63,29 +63,29 @@ services:
       - bootstrap2
       - bootstrap3
 
-  chat1:
-    image: chat_client:latest
-    container_name: chat1
-    build:
-      context: ./chat
-      dockerfile: Dockerfile
-    depends_on:
-      - bootstrap1
-      - bootstrap2
-      - bootstrap3
-      - relay
-    # network_mode: host
-    command: [
-      "./chat_client",
-      "/ip4/192.168.65.3/tcp/1240/p2p/12D3KooWRnBKUEkAEpsoCoEiuhxKBJ5j2Bdop6PGxFMvd4PwoevM",
-      "6",
-      "/ip4/192.168.65.3/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n",
-      "/ip4/192.168.65.3/tcp/1238/p2p/12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p",
-      "/ip4/192.168.65.3/tcp/1239/p2p/12D3KooWDKYjXDDgSGzhEYWYtDvfP9pMtGNY1vnAwRsSp2CwCWHL"
-    ]
-    networks:
-      chat1-net:
-        ipv4_address: 172.19.0.2
+  # chat1:
+  #   image: chat_client:latest
+  #   container_name: chat1
+  #   build:
+  #     context: ./chat
+  #     dockerfile: Dockerfile
+  #   depends_on:
+  #     - bootstrap1
+  #     - bootstrap2
+  #     - bootstrap3
+  #     - relay
+  #   network_mode: host
+  #   command: [
+  #     "./chat_client",
+  #     "/ip4/192.168.65.3/tcp/1240/p2p/12D3KooWRnBKUEkAEpsoCoEiuhxKBJ5j2Bdop6PGxFMvd4PwoevM",
+  #     "6",
+  #     "/ip4/192.168.65.3/tcp/1237/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n",
+  #     "/ip4/192.168.65.3/tcp/1238/p2p/12D3KooWBnext3VBZZuBwGn3YahAZjf49oqYckfx64VpzH6dyU1p",
+  #     "/ip4/192.168.65.3/tcp/1239/p2p/12D3KooWDKYjXDDgSGzhEYWYtDvfP9pMtGNY1vnAwRsSp2CwCWHL"
+  #   ]
+  #   # networks:
+  #   #   chat1-net:
+  #   #     ipv4_address: 172.19.0.2
 
   chat2:
     image: chat_client:latest

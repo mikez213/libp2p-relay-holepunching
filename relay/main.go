@@ -8,6 +8,7 @@ import (
 	"time"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p/config"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -84,41 +85,41 @@ func getRelayIdentity(keyIndex int) libp2p.Option {
 }
 
 func createHost(ctx context.Context, relayOpt libp2p.Option, listenPort int) host.Host {
-	// ListenAddrs := func(cfg *config.Config) error {
-	// 	addrs := []string{
-	// 		fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", listenPort),
-	// 		// "/ip4/0.0.0.0/tcp/9001",
-	// 		// "/ip4/172.17.0.2/tcp/38043",
-	// 		// "/ip4/172.20.0.2/tcp/38043",
-	// 		// "/ip4/0.0.0.0/tcp/0",
-	// 		// "/ip4/0.0.0.0/udp/0/quic-v1",
-	// 		// "/ip4/0.0.0.0/udp/0/quic-v1/webtransport",
-	// 		// "/ip4/0.0.0.0/udp/0/webrtc-direct",
-	// 		"/ip6/::/tcp/0",
-	// 		// "/ip6/::/udp/0/quic-v1",
-	// 		// "/ip6/::/udp/0/quic-v1/webtransport",
-	// 		// "/ip6/::/udp/0/webrtc-direct",
-	// 	}
-	// 	listenAddrs := make([]multiaddr.Multiaddr, 0, len(addrs))
+	ListenAddrs := func(cfg *config.Config) error {
+		addrs := []string{
+			fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", listenPort),
+			// "/ip4/0.0.0.0/tcp/9001",
+			// "/ip4/172.17.0.2/tcp/38043",
+			// "/ip4/172.20.0.2/tcp/38043",
+			// "/ip4/0.0.0.0/tcp/0",
+			// "/ip4/0.0.0.0/udp/0/quic-v1",
+			// "/ip4/0.0.0.0/udp/0/quic-v1/webtransport",
+			// "/ip4/0.0.0.0/udp/0/webrtc-direct",
+			"/ip6/::/tcp/0",
+			// "/ip6/::/udp/0/quic-v1",
+			// "/ip6/::/udp/0/quic-v1/webtransport",
+			// "/ip6/::/udp/0/webrtc-direct",
+		}
+		listenAddrs := make([]multiaddr.Multiaddr, 0, len(addrs))
 
-	// 	log.Info(" * Addresses %v", listenAddrs)
+		log.Info(" * Addresses %v", listenAddrs)
 
-	// 	for _, s := range addrs {
-	// 		addr, err := multiaddr.NewMultiaddr(s)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 		listenAddrs = append(listenAddrs, addr)
-	// 	}
+		for _, s := range addrs {
+			addr, err := multiaddr.NewMultiaddr(s)
+			if err != nil {
+				return err
+			}
+			listenAddrs = append(listenAddrs, addr)
+		}
 
-	// 	log.Info(" * Addresses %v", listenAddrs)
+		log.Info(" * Addresses %v", listenAddrs)
 
-	// 	return cfg.Apply(libp2p.ListenAddrs(listenAddrs...))
-	// }
+		return cfg.Apply(libp2p.ListenAddrs(listenAddrs...))
+	}
 
 	host, err := libp2p.New(
 		relayOpt,
-		// ListenAddrs,
+		ListenAddrs,
 		// libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", listenPort)),
 		libp2p.EnableRelay(),
 		libp2p.EnableRelayService(),
@@ -160,7 +161,7 @@ func createDHT(ctx context.Context, host host.Host) *dht.IpfsDHT {
 }
 
 func bootstrapDHT(ctx context.Context, kademliaDHT *dht.IpfsDHT) {
-	log.Debug("bootstrapping dht")
+	log.Info("bootstrapping dht")
 	if err := kademliaDHT.Bootstrap(ctx); err != nil {
 		log.Fatal(err)
 	}
