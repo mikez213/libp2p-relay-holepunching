@@ -34,23 +34,23 @@ message PingResponse {
     // ... add any additional message data here
 }
 
-//// echo protocol
+// //// echo protocol
 
-// A protocol defines a set of requests and responses.
-message EchoRequest {
-    MessageData messageData = 1;
+// // A protocol defines a set of requests and responses.
+// message EchoRequest {
+//     MessageData messageData = 1;
 
-    // method specific data
-    string message = 2;
+//     // method specific data
+//     string message = 2;
 
-    // add any additional message data here....
-}
+//     // add any additional message data here....
+// }
 
-message EchoResponse {
-    MessageData messageData = 1;
+// message EchoResponse {
+//     MessageData messageData = 1;
 
-    // response specific data
-    string message = 2;
+//     // response specific data
+//     string message = 2;
 
-    // ... add any additional message data here....
-}
+//     // ... add any additional message data here....
+// }
