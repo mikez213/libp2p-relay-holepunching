@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -21,11 +23,10 @@ import (
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 	"github.com/libp2p/go-libp2p/p2p/host/autorelay"
 
-	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
-
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 
 	"github.com/multiformats/go-multiaddr"
 )
@@ -101,19 +102,58 @@ func init() {
 }
 
 func handleStream(stream network.Stream) {
+	log.Infof("%s: Received stream status request from %s. Node guid: %s", stream.Conn().LocalPeer(), stream.Conn().RemotePeer())
 	log.Error("NEW STREAM!!!!!")
 	peerID := stream.Conn().RemotePeer()
-	log.Infof("got new stream from %s", peerID)
+	log.Infof("node runner got new stream from %s", peerID)
+	log.Infof("direction, opened, limited: %v", stream.Stat())
 
 	defer stream.Close()
 
+	// 12D3KooWJuteouY1d5SYFcAUAYDVPjFD8MUBgqsdjZfBkAecCS2Y
 	// Return a string to the mobile client
-	message := "Hello from node runner!\n"
-	if _, err := stream.Write([]byte(message)); err != nil {
-		log.Errorf("error writing to stream: %v", err)
-		return
+
+	buf := make([]byte, 5)
+	maxRetry := 5
+
+	for i := 0; i < maxRetry; i++ {
+		log.Infof("attempting to read from stream, attempt %d", i)
+		n, err := stream.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				log.Warnf("received EOF from %s, retrying read attempt %d/%d", peerID, i, maxRetry)
+				time.Sleep(1 * time.Second)
+				continue
+			} else {
+				log.Errorf("error reading from stream: %v", err)
+				return
+			}
+		}
+
+		received := string(buf[:n])
+		log.Infof("received message: %s from %s", received, peerID)
+
+		if received == "PING\n" {
+			log.Infof("received PING from %s, responding with PONG", peerID)
+			if _, err = fmt.Fprintf(stream, "PONG\n"); err != nil {
+				log.Errorf("error writing PONG to stream: %v", err)
+				return
+			}
+			log.Infof("sent PONG to %s", peerID)
+
+			rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
+			out, err := rw.WriteString("noder")
+			if err != nil {
+				log.Errorf("error writing noder to stream: bytes(%d), %v", out, err)
+			}
+			log.Infof("sent noder via bufio")
+
+		} else {
+			log.Warnf("unexpected message from %s: %s", peerID, received)
+		}
+
+		break
 	}
-	log.Infof("sent message to %s", peerID)
 }
 
 func parseBootstrap(bootstrapAddrs []string) []peer.AddrInfo {
@@ -209,10 +249,11 @@ func createHost(ctx context.Context, nodeOpt libp2p.Option, relayInfo *peer.Addr
 		libp2p.EnableAutoRelayWithStaticRelays([]peer.AddrInfo{*relayInfo}, autorelay.WithMetricsTracer(mt)),
 		libp2p.NATPortMap(),
 		libp2p.EnableAutoNATv2(),
-		libp2p.ForceReachabilityPrivate(),
+		// libp2p.ForceReachabilityPrivate(),
+		libp2p.EnableNATService(),
 		libp2p.EnableHolePunching(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
-			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeClient))
+			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeAuto))
 			return kademliaDHT, nil
 		}),
 	)
@@ -291,9 +332,15 @@ func main() {
 
 	host, kademliaDHT := createHost(ctx, nodeOpt, relayInfo)
 
-	// rend := "/customprotocol"
+	rend := "/customprotocol/1.0.0"
 	// rend := "meetmee"
-	rend := "/ipfs/ping/1.0.0"
+	// rend := "/ping"
+	// rend := "/ipfs/id/1.0.0"
+	// identify.ActivationThresh = 1
+	// rend := identify.ID
+
+	// rend := ping.ID
+
 	// rend := "/libp2p/circuit/relay/0.2.0/hop"
 	// rend := "/libp2p/dcutr"
 

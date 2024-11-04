@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -99,19 +100,50 @@ func init() {
 }
 
 func handleStream(stream network.Stream) {
+	log.Infof("%s: Received stream status request from %s. Node guid: %s", stream.Conn().LocalPeer(), stream.Conn().RemotePeer())
 	log.Error("NEW STREAM!!!!!")
 	peerID := stream.Conn().RemotePeer()
-	log.Infof("got new stream from %s", peerID)
+	log.Infof("mobile client got new stream from %s", peerID)
+	log.Infof("direction, opened, limited: %v", stream.Stat())
 
 	defer stream.Close()
 
+	// 12D3KooWJuteouY1d5SYFcAUAYDVPjFD8MUBgqsdjZfBkAecCS2Y
 	// Return a string to the mobile client
-	message := "Hello from node runner!\n"
-	if _, err := stream.Write([]byte(message)); err != nil {
-		log.Errorf("error writing to stream: %v", err)
-		return
+
+	buf := make([]byte, 5)
+	maxRetry := 5
+
+	for i := 0; i < maxRetry; i++ {
+		log.Infof("attempting to read from stream, attempt %d", i)
+		n, err := stream.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				log.Warnf("received EOF from %s, retrying read attempt %d/%d", peerID, i, maxRetry)
+				time.Sleep(1 * time.Second)
+				continue
+			} else {
+				log.Errorf("error reading from stream: %v", err)
+				return
+			}
+		}
+
+		received := string(buf[:n])
+		log.Infof("received message: %s from %s", received, peerID)
+
+		if received == "PING\n" {
+			log.Infof("received PING from %s, responding with PONG", peerID)
+			if _, err = fmt.Fprintf(stream, "PONG\n"); err != nil {
+				log.Errorf("error writing PONG to stream: %v", err)
+				return
+			}
+			log.Infof("sent PONG to %s", peerID)
+		} else {
+			log.Warnf("unexpected message from %s: %s", peerID, received)
+		}
+
+		break
 	}
-	log.Infof("sent message to %s", peerID)
 }
 
 func isBootstrapPeer(peerID peer.ID) bool {
@@ -220,7 +252,7 @@ func createHost(ctx context.Context, nodeOpt libp2p.Option, relayInfo *peer.Addr
 		libp2p.EnableNATService(),
 		libp2p.EnableHolePunching(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
-			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeClient))
+			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeAuto))
 			return kademliaDHT, nil
 		}),
 	)
@@ -354,21 +386,90 @@ func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.A
 				log.Infof("trying to connect to peer %s via relay %s", p.ID, relayAddrInfo.ID)
 				log.Infof("relay address: %s", combinedRelayAddr)
 
-				if err := host.Connect(ctx, relayAddrInfo); err != nil {
-					log.Warningf("failed to connect to peer %s via relay %s: %v", p.ID, relayAddrInfo.ID, err)
+				targetInfo, err := peer.AddrInfoFromP2pAddr(combinedRelayAddr)
+				if err != nil {
+					log.Error(err)
 					continue
 				}
+				targetID := targetInfo.ID
+
+				newRelayAddr, err := multiaddr.NewMultiaddr("/p2p/" + relayAddrInfo.ID.String() + "/p2p-circuit/p2p/" + targetID.String())
+				if err != nil {
+					log.Error(err)
+					continue
+				}
+
+				log.Infof("newRelayAddr: %v", newRelayAddr)
+
+				targetRelayedInfo := peer.AddrInfo{
+					ID:    targetID,
+					Addrs: []multiaddr.Multiaddr{newRelayAddr},
+				}
+
+				log.Infof(" * Unreachable Relay Info %v", targetRelayedInfo)
+
+				if err := host.Connect(context.Background(), targetRelayedInfo); err != nil {
+					log.Errorf("Connection failed via relay: %v", err)
+					continue
+				}
+				// if err := host.Connect(ctx, relayAddrInfo); err != nil {
+				// 	log.Warningf("failed to connect to peer %s via relay %s: %v", p.ID, relayAddrInfo.ID, err)
+				// 	continue
+				// }
+
+				// add a timeout?
 				log.Infof("we have connected to peer %s via relay %s", p.ID, relayAddrInfo.ID)
 
-				log.Infof("attempting to open stream to peer %s with ID %s", p.ID, protocol.ID(rend))
+				log.Infof("peerswithaddrs: %v", host.Peerstore().PeersWithAddrs())
+
+				// var node_runner_ID peer.ID = "12D3KooWJuteouY1d5SYFcAUAYDVPjFD8MUBgqsdjZfBkAecCS2Y"
+				// log.Infof("peers info of node runner: %v", host.Peerstore().SupportsProtocols(node_runner_ID, protocol.ID(rend)))
 
 				for i := 0; i < 5; i++ {
-					_, err := host.NewStream(ctx, relayAddrInfo.ID, protocol.ID(rend))
+					// stream, err := host.NewStream(ctx, p.ID, protocol.ID(rend))
+					log.Infof("attempting to open stream to peer %s with ID %s", p.ID, protocol.ID(rend))
+
+					stream, err := host.NewStream(network.WithAllowLimitedConn(context.Background(), rend), targetID, protocol.ID(rend))
+
 					if err != nil {
 						log.Warningf("failed to open stream to peer %s: %v, attempt %d/5", p.ID, err, i)
 						continue
 					}
 					log.Infof("succesfully streaming to %s via relay %s", p.ID, relayAddrInfo.ID)
+
+					log.Infof("protocol %s", stream.Protocol())
+
+					err = stream.SetProtocol(protocol.ID(rend))
+					if err != nil {
+						log.Warningf("error setting protocol %s", err)
+						// continue
+					}
+
+					err = stream.SetProtocol(protocol.ID("/ipfs/id/push/1.0.0"))
+					if err != nil {
+						log.Warningf("error setting protocol %s", err)
+						// continue
+					}
+					log.Infof("protocol %s", stream.Protocol())
+
+					stream.Protocol()
+
+					state := stream.Conn().ConnState()
+					log.Infof("connection id: %s, state: %v", stream.Conn().ID(), state)
+
+					// if err != nil {
+					// 	log.Warningf("error setting protocol")
+					// 	continue
+					// }
+
+					if _, err := fmt.Fprintf(stream, "PING\n"); err != nil {
+						log.Errorf("failed to send ping to %s: %v", relayAddrInfo, err)
+						return
+					}
+					log.Infof("PING message sent to %s", relayAddrInfo)
+					log.Infof("%s: sent stream status request from %s. Node guid: %s", stream.Conn().RemotePeer(), stream.Conn().RemotePeer())
+					log.Infof("direction, opened, limited: %v", stream.Stat())
+					// stream.Read()
 					// stream.Write([]byte "test)
 					// stream.Close()
 
@@ -378,7 +479,7 @@ func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.A
 				break
 			}
 		} else {
-			stream, err := host.NewStream(ctx, p.ID, protocol.ID(rend))
+			_, err := host.NewStream(ctx, p.ID, protocol.ID(rend))
 			if err != nil {
 				log.Warningf("failed to open stream to peer directly %s: %v", p.ID, err)
 				continue
@@ -386,10 +487,24 @@ func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.A
 
 			log.Infof("connected to %s", p.ID)
 
-			stream.Close()
+			// stream.Close()
 
 			connectedPeers[p.ID] = true
 		}
+
+		// done := make(chan bool)
+		// node := ping.NewNode(host, done)
+
+		// // Send Ping
+		// node.PingProtocol.Ping(p.ID)
+
+		// // Wait for Ping Response
+		// select {
+		// case <-done:
+		// 	log.Println("Ping exchange completed")
+		// case <-time.After(10 * time.Second):
+		// 	log.Println("Ping exchange timed out")
+		// }
 	}
 }
 
@@ -410,15 +525,21 @@ func main() {
 
 	host, kademliaDHT := createHost(ctx, nodeOpt, relayInfo)
 
-	// rend := "/customprotocol"
-	rend := "/ping"
-
-	host.SetStreamHandler(protocol.ID(rend), handleStream)
+	rend := "/customprotocol/1.0.0"
+	// rend := "/ping"
+	// rend := "/ipfs/id/1.0.0"
+	// identify.ActivationThresh = 1
+	// rend := identify.ID
+	// host.SetStreamHandler(protocol.ID(rend), handleStream)
+	// rend := "/ipfs/ping/1.0.0"
+	// rend := ping.ID
 
 	connectToBootstrapPeers(ctx, host, bootstrapPeers)
 	bootstrapDHT(ctx, kademliaDHT)
 	connectToRelay(ctx, host, relayInfo)
 	relayAddresses := constructRelayAddresses(host, relayInfo)
+
+	host.SetStreamHandler(protocol.ID(rend), handleStream)
 
 	log.Infof("waiting 10 sec for stability")
 	time.Sleep(10 * time.Second)

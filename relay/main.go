@@ -4,8 +4,8 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
-	"io" // Added import for io
+	"fmt" // Added import for io
+	"io"
 	"strings"
 	"time"
 
@@ -22,6 +22,7 @@ import (
 	libp2p "github.com/libp2p/go-libp2p"
 
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
+	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 
 	multiaddr "github.com/multiformats/go-multiaddr"
 )
@@ -54,7 +55,9 @@ var relayerPrivateKeys = []string{
 	//12D3KooWQaZ9Ppi8A2hcEspJhewfPqKjtXu4vx7FQPaUGnHXWpNL
 }
 
-var NodeRunnerProtocol = protocol.ID("/customprotocol/request-node-runner/1.0.0")
+// var NodeRunnerProtocol = protocol.ID("/customprotocol/request-node-runner/1.0.0")
+// var NodeRunnerProtocol = protocol.ID(identify.ID)
+var NodeRunnerProtocol = protocol.ID("/customprotocol/1.0.0")
 
 func RelayIdentity(keyIndex int) (libp2p.Option, error) {
 	if keyIndex < 0 || keyIndex >= len(relayerPrivateKeys) {
@@ -203,7 +206,7 @@ func connectToBootstrapPeers(ctx context.Context, host host.Host, bootstrapPeers
 func setupDHTRefresh(kademliaDHT *dht.IpfsDHT) {
 	go func() {
 		for {
-			time.Sleep(10 * time.Second)
+			time.Sleep(30 * time.Second)
 			kademliaDHT.RefreshRoutingTable()
 			peers := kademliaDHT.RoutingTable().ListPeers()
 			log.Infof("Routing table peers (%d): %v", len(peers), peers)
@@ -212,83 +215,131 @@ func setupDHTRefresh(kademliaDHT *dht.IpfsDHT) {
 	}()
 }
 
-func handleNodeRunnerIDRequest(stream network.Stream, nodeRunnerID peer.ID) {
-	defer stream.Close()
-	log.Infof("Received Node Runner ID request from %s", stream.Conn().RemotePeer())
+// func handleNodeRunnerIDRequest(stream network.Stream, nodeRunnerID peer.ID) {
+// 	defer stream.Close()
+// 	log.Infof("Received Node Runner ID request from %s", stream.Conn().RemotePeer())
 
-	// Read the request message
-	buf := make([]byte, 256)
-	n, err := stream.Read(buf)
-	if err != nil {
-		if err != io.EOF {
-			log.Errorf("Error reading request: %v", err)
+// 	// Read the request message
+// 	buf := make([]byte, 256)
+// 	n, err := stream.Read(buf)
+// 	if err != nil {
+// 		if err != io.EOF {
+// 			log.Errorf("Error reading request: %v", err)
+// 		}
+// 		return
+// 	}
+
+// 	request := strings.TrimSpace(string(buf[:n]))
+// 	log.Infof("got request: %s", request)
+// 	if request != "PING" {
+// 		log.Warnf("Invalid request from %s: %s", stream.Conn().RemotePeer(), request)
+// 		return
+// 	}
+
+// 	// Respond with the Node Runner's Peer ID
+// 	response := fmt.Sprintf("%s\n", nodeRunnerID.String())
+// 	_, err = stream.Write([]byte(response))
+// 	if err != nil {
+// 		log.Errorf("Error writing response to %s: %v", stream.Conn().RemotePeer(), err)
+// 		return
+// 	}
+
+// 	log.Infof("Sent Node Runner Peer ID %s to %s", nodeRunnerID, stream.Conn().RemotePeer())
+// }
+
+// func requestNodeRunnerID(ctx context.Context, host host.Host, relayInfo *peer.AddrInfo) (peer.ID, error) {
+// 	stream, err := host.NewStream(ctx, relayInfo.ID, NodeRunnerProtocol)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to open stream to relay: %w", err)
+// 	}
+// 	defer stream.Close()
+
+// 	_, err = fmt.Fprintf(stream, "REQUEST_NODE_RUNNER_ID\n")
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to send request: %w", err)
+// 	}
+
+// 	buf := make([]byte, 128)
+// 	n, err := stream.Read(buf)
+// 	if err != nil && err != io.EOF {
+// 		return "", fmt.Errorf("failed to read response: %w", err)
+// 	}
+
+// 	nodeRunnerIDStr := strings.TrimSpace(string(buf[:n]))
+// 	nodeRunnerID, err := peer.Decode(nodeRunnerIDStr)
+// 	if err != nil {
+// 		return "", fmt.Errorf("invalid Peer ID received: %w", err)
+// 	}
+
+// 	log.Infof("Received Node Runner Peer ID: %s", nodeRunnerID)
+// 	return nodeRunnerID, nil
+// }
+
+// func communicateWithNodeRunner(ctx context.Context, host host.Host, nodeRunnerID peer.ID, protocolID string) {
+// 	stream, err := host.NewStream(ctx, nodeRunnerID, protocol.ID(protocolID))
+// 	if err != nil {
+// 		log.Fatalf("Failed to open stream to Node Runner: %v", err)
+// 	}
+// 	defer stream.Close()
+
+//		log.Info("Receiving message from Node Runner")
+//		buf := make([]byte, 1024)
+//		n, err := stream.Read(buf)
+//		if err != nil && err != io.EOF {
+//			log.Errorf("Error reading from stream: %v", err)
+//		}
+//		log.Infof("Received message: %s", string(buf[:n]))
+//	}
+func handleStream(stream network.Stream) {
+	log.Infof("%s: Received stream status request from %s. Node guid: %s", stream.Conn().LocalPeer(), stream.Conn().RemotePeer())
+	log.Error("NEW STREAM!!!!!")
+	peerID := stream.Conn().RemotePeer()
+	log.Infof("relay got new stream from %s", peerID)
+	log.Infof("direction, opened, limited: %v", stream.Stat())
+
+	defer stream.Close()
+
+	// 12D3KooWJuteouY1d5SYFcAUAYDVPjFD8MUBgqsdjZfBkAecCS2Y
+	// Return a string to the mobile client
+
+	buf := make([]byte, 5)
+	maxRetry := 5
+
+	for i := 0; i < maxRetry; i++ {
+		log.Infof("attempting to read from stream, attempt %d", i)
+		n, err := stream.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				log.Warnf("received EOF from %s, retrying read attempt %d/%d", peerID, i, maxRetry)
+				time.Sleep(1 * time.Second)
+				continue
+			} else {
+				log.Errorf("error reading from stream: %v", err)
+				return
+			}
 		}
-		return
+
+		received := string(buf[:n])
+		log.Infof("received message: %s from %s", received, peerID)
+
+		if received == "PING\n" {
+			log.Infof("received PING from %s, responding with PONG", peerID)
+			if _, err = fmt.Fprintf(stream, "PONG\n"); err != nil {
+				log.Errorf("error writing PONG to stream: %v", err)
+				return
+			}
+			log.Infof("sent PONG to %s", peerID)
+		} else {
+			log.Warnf("unexpected message from %s: %s", peerID, received)
+		}
+
+		break
 	}
-
-	request := strings.TrimSpace(string(buf[:n]))
-	if request != "REQUEST_NODE_RUNNER_ID" {
-		log.Warnf("Invalid request from %s: %s", stream.Conn().RemotePeer(), request)
-		return
-	}
-
-	// Respond with the Node Runner's Peer ID
-	response := fmt.Sprintf("%s\n", nodeRunnerID.String())
-	_, err = stream.Write([]byte(response))
-	if err != nil {
-		log.Errorf("Error writing response to %s: %v", stream.Conn().RemotePeer(), err)
-		return
-	}
-
-	log.Infof("Sent Node Runner Peer ID %s to %s", nodeRunnerID, stream.Conn().RemotePeer())
-}
-
-func requestNodeRunnerID(ctx context.Context, host host.Host, relayInfo *peer.AddrInfo) (peer.ID, error) {
-	stream, err := host.NewStream(ctx, relayInfo.ID, NodeRunnerProtocol)
-	if err != nil {
-		return "", fmt.Errorf("failed to open stream to relay: %w", err)
-	}
-	defer stream.Close()
-
-	_, err = fmt.Fprintf(stream, "REQUEST_NODE_RUNNER_ID\n")
-	if err != nil {
-		return "", fmt.Errorf("failed to send request: %w", err)
-	}
-
-	buf := make([]byte, 128)
-	n, err := stream.Read(buf)
-	if err != nil && err != io.EOF {
-		return "", fmt.Errorf("failed to read response: %w", err)
-	}
-
-	nodeRunnerIDStr := strings.TrimSpace(string(buf[:n]))
-	nodeRunnerID, err := peer.Decode(nodeRunnerIDStr)
-	if err != nil {
-		return "", fmt.Errorf("invalid Peer ID received: %w", err)
-	}
-
-	log.Infof("Received Node Runner Peer ID: %s", nodeRunnerID)
-	return nodeRunnerID, nil
-}
-
-func communicateWithNodeRunner(ctx context.Context, host host.Host, nodeRunnerID peer.ID, protocolID string) {
-	stream, err := host.NewStream(ctx, nodeRunnerID, protocol.ID(protocolID))
-	if err != nil {
-		log.Fatalf("Failed to open stream to Node Runner: %v", err)
-	}
-	defer stream.Close()
-
-	log.Info("Receiving message from Node Runner")
-	buf := make([]byte, 1024)
-	n, err := stream.Read(buf)
-	if err != nil && err != io.EOF {
-		log.Errorf("Error reading from stream: %v", err)
-	}
-	log.Infof("Received message: %s", string(buf[:n]))
 }
 
 func main() {
 	initializeLogger()
+	identify.ActivationThresh = 1
 
 	listenPort, bootstrapPeers, keyIndex, noderunnerIDStr := parseCommandLineArgs()
 
@@ -296,10 +347,10 @@ func main() {
 		log.Fatal("Node Runner Peer ID must be provided using the -noderunner flag")
 	}
 
-	nodeRunnerID, err := peer.Decode(noderunnerIDStr)
-	if err != nil {
-		log.Fatalf("Invalid Node Runner Peer ID '%s': %v", noderunnerIDStr, err)
-	}
+	// nodeRunnerID, err := peer.Decode(noderunnerIDStr)
+	// if err != nil {
+	// 	log.Fatalf("Invalid Node Runner Peer ID '%s': %v", noderunnerIDStr, err)
+	// }
 
 	relayOpt := getRelayIdentity(keyIndex)
 
@@ -323,9 +374,10 @@ func main() {
 
 	setupDHTRefresh(kademliaDHT)
 
-	host.SetStreamHandler(NodeRunnerProtocol, func(s network.Stream) {
-		handleNodeRunnerIDRequest(s, nodeRunnerID)
-	})
+	// host.SetStreamHandler(NodeRunnerProtocol, func(s network.Stream) {
+	// 	handleStream(strea)
+	// })
+	host.SetStreamHandler(protocol.ID(NodeRunnerProtocol), handleStream)
 
 	log.Info("Relay is ready to handle Node Runner ID requests")
 
