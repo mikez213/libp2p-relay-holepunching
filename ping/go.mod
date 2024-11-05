@@ -1,4 +1,4 @@
-module ping
+module github.com/mikez213/libp2p-relay-holepunching/ping
 
 go 1.23.1
 

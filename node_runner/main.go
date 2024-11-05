@@ -103,6 +103,10 @@ func init() {
 
 func handleStream(stream network.Stream) {
 	log.Infof("%s: Received stream status request from %s. Node guid: %s", stream.Conn().LocalPeer(), stream.Conn().RemotePeer())
+
+	c := stream.Conn()
+	log.Debugf("%s received message from %s %s", stream.Protocol(), c.RemotePeer(), c.RemoteMultiaddr())
+
 	log.Error("NEW STREAM!!!!!")
 	peerID := stream.Conn().RemotePeer()
 	log.Infof("node runner got new stream from %s", peerID)
@@ -253,7 +257,7 @@ func createHost(ctx context.Context, nodeOpt libp2p.Option, relayInfo *peer.Addr
 		libp2p.EnableNATService(),
 		libp2p.EnableHolePunching(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
-			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeAuto))
+			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeClient))
 			return kademliaDHT, nil
 		}),
 	)
@@ -337,7 +341,7 @@ func main() {
 	// rend := "/ping"
 	// rend := "/ipfs/id/1.0.0"
 	// identify.ActivationThresh = 1
-	// rend := identify.ID
+	// rend = identify.ID
 
 	// rend := ping.ID
 

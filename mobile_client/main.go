@@ -27,6 +27,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 
 	"github.com/multiformats/go-multiaddr"
+
+	"github.com/mikez213/libp2p-relay-holepunching/ping"
 )
 
 var log = logging.Logger("mobile_client_log")
@@ -252,7 +254,7 @@ func createHost(ctx context.Context, nodeOpt libp2p.Option, relayInfo *peer.Addr
 		libp2p.EnableNATService(),
 		libp2p.EnableHolePunching(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
-			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeAuto))
+			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeClient))
 			return kademliaDHT, nil
 		}),
 	)
@@ -346,7 +348,7 @@ func containsPeer(relayAddresses []peer.AddrInfo, pid peer.ID) bool {
 	return false
 }
 
-func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.AddrInfo, pChan <-chan peer.AddrInfo, connectedPeers map[peer.ID]bool, rend string) {
+func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.AddrInfo, pChan <-chan peer.AddrInfo, connectedPeers map[peer.ID]bool, rend string, node *ping.Node) {
 	for p := range pChan {
 		if p.ID == host.ID() {
 			fmt.Printf("host.ID: %v\n", host.ID())
@@ -371,7 +373,14 @@ func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.A
 		if err != nil {
 			log.Warningf("failed to connect to peer directly %s : %v", p.ID, err)
 			log.Infof("we have these relayAddresses:%d , %v", len(relayAddresses), relayAddresses)
+
 			for _, relayAddrInfo := range relayAddresses {
+
+				if len(relayAddrInfo.Addrs) == 0 {
+					log.Errorf("relay %s has no addresses!!!!", relayAddrInfo.ID)
+					continue
+				}
+
 				relayAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p-circuit/p2p/%s", p.ID))
 				// relayAddr, err := multiaddr.NewMultiaddr(fmt.Sprintf("/p2p-circuit/p2p/%s", relayAddrInfo.ID))
 				if err != nil {
@@ -406,7 +415,7 @@ func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.A
 					Addrs: []multiaddr.Multiaddr{newRelayAddr},
 				}
 
-				log.Infof(" * Unreachable Relay Info %v", targetRelayedInfo)
+				log.Infof("targetRelayedInfo %v", targetRelayedInfo)
 
 				if err := host.Connect(context.Background(), targetRelayedInfo); err != nil {
 					log.Errorf("Connection failed via relay: %v", err)
@@ -455,7 +464,7 @@ func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.A
 					stream.Protocol()
 
 					state := stream.Conn().ConnState()
-					log.Infof("connection id: %s, state: %v", stream.Conn().ID(), state)
+					log.Infof("connection id: %s, state: %+v", stream.Conn().ID(), state)
 
 					// if err != nil {
 					// 	log.Warningf("error setting protocol")
@@ -543,6 +552,8 @@ func main() {
 
 	log.Infof("waiting 10 sec for stability")
 	time.Sleep(10 * time.Second)
+	done := make(chan bool)
+	node := ping.NewNode(host, done)
 
 	peerChan, err := searchForPeers(ctx, kademliaDHT, rend)
 	if err != nil {
@@ -551,7 +562,7 @@ func main() {
 
 	connectedPeers := make(map[peer.ID]bool)
 
-	connectToPeers(ctx, host, relayAddresses, peerChan, connectedPeers, rend)
+	connectToPeers(ctx, host, relayAddresses, peerChan, connectedPeers, rend, node)
 
 	// connectToNodeRunner(ctx, host, relayInfo, peerChan, rend)
 

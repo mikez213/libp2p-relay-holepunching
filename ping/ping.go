@@ -1,4 +1,4 @@
-package main
+package ping
 
 import (
 	"context"
@@ -20,6 +20,13 @@ import (
 
 	ggio "github.com/gogo/protobuf/io"
 )
+
+/*
+
+generate in /ping:
+protoc --go_out=. --go_opt=paths=source_relative pb/p2p.proto
+
+*/
 
 // node client version
 const clientVersion = "go-p2p-node/0.0.1"
