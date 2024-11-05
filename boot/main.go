@@ -132,14 +132,14 @@ func main() {
 		log.Infof("%s/p2p/%s", addr, host.ID())
 	}
 
-	go func() {
-		for {
-			time.Sleep(20 * time.Second)
-			kademliaDHT.RefreshRoutingTable() //has a channel to block, but unused for now
-			peers := kademliaDHT.RoutingTable().ListPeers()
-			log.Infof("routing table peers (%d): %v", len(peers), peers)
-		}
-	}()
+	// go func() {
+	// 	for {
+	// 		time.Sleep(20 * time.Second)
+	// 		kademliaDHT.RefreshRoutingTable() //has a channel to block, but unused for now
+	// 		peers := kademliaDHT.RoutingTable().ListPeers()
+	// 		log.Infof("routing table peers (%d): %v", len(peers), peers)
+	// 	}
+	// }()
 
 	select {}
 }
