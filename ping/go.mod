@@ -6,8 +6,8 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/uuid v1.6.0
 	github.com/libp2p/go-libp2p v0.37.0
-	github.com/libp2p/go-libp2p-core v0.20.1
 	github.com/libp2p/go-libp2p/examples v0.0.0-20241025214539-362e5836f146
+	google.golang.org/protobuf v1.35.1
 )
 
 require (
@@ -29,6 +29,5 @@ require (
 	golang.org/x/crypto v0.28.0 // indirect
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c // indirect
 	golang.org/x/sys v0.26.0 // indirect
-	google.golang.org/protobuf v1.35.1 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 )

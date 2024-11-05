@@ -20,8 +20,6 @@ github.com/libp2p/go-buffer-pool v0.1.0 h1:oK4mSFcQz7cTQIfqbe4MIj9gLW+mnanjyFtc6
 github.com/libp2p/go-buffer-pool v0.1.0/go.mod h1:N+vh8gMqimBzdKkSMVuydVDq+UV5QTWy5HSiZacSbPg=
 github.com/libp2p/go-libp2p v0.37.0 h1:8K3mcZgwTldydMCNOiNi/ZJrOB9BY+GlI3UxYzxBi9A=
 github.com/libp2p/go-libp2p v0.37.0/go.mod h1:GOKmSN99scDuYGTwaTbQPR8Nt6dxrK3ue7OjW2NGDg4=
-github.com/libp2p/go-libp2p-core v0.20.1 h1:fQz4BJyIFmSZAiTbKV8qoYhEH5Dtv/cVhZbG3Ib/+Cw=
-github.com/libp2p/go-libp2p-core v0.20.1/go.mod h1:6zR8H7CvQWgYLsbG4on6oLNSGcyKaYFSEYyDt51+bIY=
 github.com/libp2p/go-libp2p/examples v0.0.0-20241025214539-362e5836f146 h1:du0x+hnZeAG2x0GdM1L9eDZNRL9NMTQuZ0W7HKgcEzw=
 github.com/libp2p/go-libp2p/examples v0.0.0-20241025214539-362e5836f146/go.mod h1:sHsMFNJ53YeBVfpdODf8MjemCLVdTpeCoJdUV2wggL0=
 github.com/minio/sha256-simd v1.0.1 h1:6kaan5IFmwTNynnKKpDHe6FWHohJOHhCPchzK49dzMM=

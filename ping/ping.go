@@ -282,17 +282,20 @@ func (p *PingProtocol) onPingResponse(s network.Stream) {
 	p.done <- true
 }
 
-func (p *PingProtocol) Ping(host host.Host) bool {
-	log.Printf("%s: Sending ping to: %s....", p.node.ID(), host.ID())
+// Ping sends a ping request to a peer
+func (p *PingProtocol) Ping(target peer.ID) bool {
+	log.Printf("%s: Sending ping to: %s....", p.node.ID(), target)
 
 	// create message data
-	req := &p2p.PingRequest{MessageData: p.node.NewMessageData(uuid.New().String(), false),
-		Message: fmt.Sprintf("Ping from %s", p.node.ID())}
+	req := &p2p.PingRequest{
+		MessageData: p.node.NewMessageData(uuid.New().String(), false),
+		Message:     fmt.Sprintf("Ping from %s", p.node.ID()),
+	}
 
-	// sign the data
+	// Sign the data
 	signature, err := p.node.signProtoMessage(req)
 	if err != nil {
-		log.Println("failed to sign pb data")
+		log.Println("Failed to sign ping request:", err)
 		return false
 	}
 
@@ -304,11 +307,12 @@ func (p *PingProtocol) Ping(host host.Host) bool {
 	p.requests[req.MessageData.Id] = req
 	p.mu.Unlock()
 
-	ok := p.node.sendProtoMessage(host.ID(), pingRequest, req)
+	// Send the ping request using the Ping Protocol
+	ok := p.node.sendProtoMessage(target, pingRequest, req)
 	if !ok {
 		return false
 	}
 
-	log.Printf("%s: Ping to: %s was sent. Message Id: %s, Message: %s", p.node.ID(), host.ID(), req.MessageData.Id, req.Message)
+	log.Printf("%s: Ping to: %s was sent. Message ID: %s, Message: %s", p.node.ID(), target, req.MessageData.Id, req.Message)
 	return true
 }
