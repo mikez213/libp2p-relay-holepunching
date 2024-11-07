@@ -205,8 +205,8 @@ github.com/libp2p/go-libp2p-routing-helpers v0.7.4 h1:6LqS1Bzn5CfDJ4tzvP9uwh42IB
 github.com/libp2p/go-libp2p-routing-helpers v0.7.4/go.mod h1:we5WDj9tbolBXOuF1hGOkR+r7Uh1408tQbAKaT5n1LE=
 github.com/libp2p/go-libp2p-testing v0.12.0 h1:EPvBb4kKMWO29qP4mZGyhVzUyR25dvfUIK5WDu6iPUA=
 github.com/libp2p/go-libp2p-testing v0.12.0/go.mod h1:KcGDRXyN7sQCllucn1cOOS+Dmm7ujhfEyXQL5lvkcPg=
-github.com/libp2p/go-libp2p/examples v0.0.0-20241025214539-362e5836f146 h1:du0x+hnZeAG2x0GdM1L9eDZNRL9NMTQuZ0W7HKgcEzw=
-github.com/libp2p/go-libp2p/examples v0.0.0-20241025214539-362e5836f146/go.mod h1:sHsMFNJ53YeBVfpdODf8MjemCLVdTpeCoJdUV2wggL0=
+github.com/libp2p/go-libp2p/examples v0.0.0-20241105183324-10045d1e005d h1:ArHfmd74r/HTNe+tJ44DWn4A6B6QL55mu4Uyuy+Tzac=
+github.com/libp2p/go-libp2p/examples v0.0.0-20241105183324-10045d1e005d/go.mod h1:sHsMFNJ53YeBVfpdODf8MjemCLVdTpeCoJdUV2wggL0=
 github.com/libp2p/go-msgio v0.3.0 h1:mf3Z8B1xcFN314sWX+2vOTShIE0Mmn2TXn3YCUQGNj0=
 github.com/libp2p/go-msgio v0.3.0/go.mod h1:nyRM819GmVaF9LX3l03RMh10QdOroF++NBbxAb0mmDM=
 github.com/libp2p/go-nat v0.2.0 h1:Tyz+bUFAYqGyJ/ppPPymMGbIgNRH+WqC5QrT5fKrrGk=
