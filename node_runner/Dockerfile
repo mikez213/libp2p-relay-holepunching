@@ -2,15 +2,16 @@ FROM golang:1.23
 
 WORKDIR /usr/src/app
 
-COPY go.mod go.sum ./
+COPY node_runner/go.mod node_runner/go.sum ./node_runner/
+
+COPY ping ./node_runner/ping/
+
+WORKDIR /usr/src/app/node_runner
 
 RUN go mod download
 
-COPY . .
+COPY node_runner/. .
 
 RUN go build -o node_runner .
 
-# EXPOSE 1234 1237 1238 1239
-
-#this is overwrite by compose
 CMD ["./node_runner", '-bootstrap="runthisindocker or /ip4/10.0.20.118/tcp/1234/p2p/12D3KooWLr1gYejUTeriAsSu6roR2aQ423G3Q4fFTqzqSwTsMz9n"']

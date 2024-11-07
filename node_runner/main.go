@@ -14,6 +14,7 @@ import (
 	"github.com/libp2p/go-libp2p/config"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peerstore"
 
 	logging "github.com/ipfs/go-log/v2"
 	libp2p "github.com/libp2p/go-libp2p"
@@ -27,7 +28,9 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
+	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 
+	"github.com/mikez213/libp2p-relay-holepunching/ping"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -137,8 +140,8 @@ func handleStream(stream network.Stream) {
 		received := string(buf[:n])
 		log.Infof("received message: %s from %s", received, peerID)
 
-		if received == "PING\n" {
-			log.Infof("received PING from %s, responding with PONG", peerID)
+		if received == "PING\n" || received == "TEST\n" {
+			log.Infof("received %s from %s, responding with PONG", received, peerID)
 			if _, err = fmt.Fprintf(stream, "PONG\n"); err != nil {
 				log.Errorf("error writing PONG to stream: %v", err)
 				return
@@ -340,7 +343,7 @@ func main() {
 	// rend := "meetmee"
 	// rend := "/ping"
 	// rend := "/ipfs/id/1.0.0"
-	// identify.ActivationThresh = 1
+	identify.ActivationThresh = 1
 	// rend = identify.ID
 
 	// rend := ping.ID
@@ -360,6 +363,21 @@ func main() {
 	reserveRelay(ctx, host, relayInfo)
 
 	announceSelf(ctx, kademliaDHT, rend)
+
+	done := make(chan bool)
+	node := ping.NewNode(host, done)
+	node.Peerstore().AddAddrs(host.ID(), host.Addrs(), peerstore.PermanentAddrTTL)
+	// node.Node
+	// Send Ping
+	// node.PingProtocol.Ping(pid)
+
+	// Wait for Ping Response
+	select {
+	case <-done:
+		log.Infof("Ping exchange completed")
+	case <-time.After(10 * time.Second):
+		log.Errorf("Ping exchange timed out")
+	}
 
 	select {}
 }

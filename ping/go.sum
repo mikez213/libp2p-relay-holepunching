@@ -20,8 +20,8 @@ github.com/libp2p/go-buffer-pool v0.1.0 h1:oK4mSFcQz7cTQIfqbe4MIj9gLW+mnanjyFtc6
 github.com/libp2p/go-buffer-pool v0.1.0/go.mod h1:N+vh8gMqimBzdKkSMVuydVDq+UV5QTWy5HSiZacSbPg=
 github.com/libp2p/go-libp2p v0.37.0 h1:8K3mcZgwTldydMCNOiNi/ZJrOB9BY+GlI3UxYzxBi9A=
 github.com/libp2p/go-libp2p v0.37.0/go.mod h1:GOKmSN99scDuYGTwaTbQPR8Nt6dxrK3ue7OjW2NGDg4=
-github.com/libp2p/go-libp2p/examples v0.0.0-20241025214539-362e5836f146 h1:du0x+hnZeAG2x0GdM1L9eDZNRL9NMTQuZ0W7HKgcEzw=
-github.com/libp2p/go-libp2p/examples v0.0.0-20241025214539-362e5836f146/go.mod h1:sHsMFNJ53YeBVfpdODf8MjemCLVdTpeCoJdUV2wggL0=
+github.com/libp2p/go-libp2p/examples v0.0.0-20241105183324-10045d1e005d h1:ArHfmd74r/HTNe+tJ44DWn4A6B6QL55mu4Uyuy+Tzac=
+github.com/libp2p/go-libp2p/examples v0.0.0-20241105183324-10045d1e005d/go.mod h1:sHsMFNJ53YeBVfpdODf8MjemCLVdTpeCoJdUV2wggL0=
 github.com/minio/sha256-simd v1.0.1 h1:6kaan5IFmwTNynnKKpDHe6FWHohJOHhCPchzK49dzMM=
 github.com/minio/sha256-simd v1.0.1/go.mod h1:Pz6AKMiUdngCLpeTL/RJY1M9rUuPMYujV5xJjtbRSN8=
 github.com/mr-tron/base58 v1.2.0 h1:T/HDJBh4ZCPbU39/+c3rRvE0uKBQlU27+QI8LJ4t64o=

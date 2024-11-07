@@ -93,15 +93,13 @@ services:
     image: node_runner:latest
     container_name: node_runner
     build:
-      context: ./node_runner
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: node_runner/Dockerfile
     depends_on:
       - bootstrap1
       - bootstrap2
       - bootstrap3
       - relay
-
-    # network_mode: host
     command: [
       "./node_runner",
       "/ip4/192.168.65.3/tcp/1240/p2p/12D3KooWRnBKUEkAEpsoCoEiuhxKBJ5j2Bdop6PGxFMvd4PwoevM",
@@ -114,19 +112,19 @@ services:
       chat2-net:
         ipv4_address: 172.20.0.2
 
+
   mobile_client:
     image: mobile_client:latest
     container_name: mobile_client
     build:
-      context: ./mobile_client
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: mobile_client/Dockerfile
     depends_on:
       - bootstrap1
       - bootstrap2
       - bootstrap3
       - relay
       - node_runner
-
     command: [
       "./mobile_client",
       "/ip4/192.168.65.3/tcp/1240/p2p/12D3KooWRnBKUEkAEpsoCoEiuhxKBJ5j2Bdop6PGxFMvd4PwoevM",
