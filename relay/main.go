@@ -139,7 +139,13 @@ func createHost(ctx context.Context, relayOpt libp2p.Option, listenPort int) hos
 
 func setupRelayService(host host.Host) {
 	mt := relay.NewMetricsTracer()
-	_, err := relay.New(host, relay.WithInfiniteLimits(), relay.WithMetricsTracer(mt))
+	log.Debugf("Relay timeouts: %d %d %d",
+		relay.ConnectTimeout,
+		relay.StreamTimeout,
+		relay.HandshakeTimeout)
+
+	relayService, err := relay.New(host, relay.WithInfiniteLimits(), relay.WithMetricsTracer(mt))
+	log.Debugf("relayservice %+v", relayService)
 	// limit resources?
 	if err != nil {
 		log.Infof("Failed to instantiate the relay: %v", err)
@@ -372,7 +378,7 @@ func main() {
 
 	logHostInfo(host)
 
-	setupDHTRefresh(kademliaDHT)
+	// setupDHTRefresh(kademliaDHT)
 
 	// host.SetStreamHandler(NodeRunnerProtocol, func(s network.Stream) {
 	// 	handleStream(strea)
