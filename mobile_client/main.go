@@ -23,13 +23,14 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/host/autorelay"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 
+	// "github.com/libp2p/go-libp2p/p2p/protocol/ping"
+
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	"github.com/libp2p/go-libp2p/core/protocol"
 
+	ping "github.com/mikez213/libp2p-relay-holepunching/ping"
 	"github.com/multiformats/go-multiaddr"
-
-	"github.com/mikez213/libp2p-relay-holepunching/ping"
 )
 
 var log = logging.Logger("mobile_client_log")
@@ -102,62 +103,63 @@ func init() {
 	logging.SetLogLevel("mobile_client_log", "debug")
 }
 
-func pingPeer(ctx context.Context, host host.Host, pid peer.ID, rend string, connectedPeers map[peer.ID]peer.AddrInfo) {
-	log.Infof("attempting to open ping stream to %s", pid)
+// func pingPeer(ctx context.Context, host host.Host, pid peer.ID, rend string, connectedPeers map[peer.ID]peer.AddrInfo, pingprotocol *PingProtocol) {
+// 	log.Infof("attempting to open ping stream to %s", pid)
 
-	done := make(chan bool)
-	node := ping.NewNode(host, done)
+// 	// done := make(chan bool)
+// 	// node := ping.NewNode(host, done)
+// 	done := ping.Ping(ctx, host, pid)
+// 	// // Send Ping
+// 	// node.PingProtocol.Ping(pid)
+// 	// Wait for Ping Response
+// 	select {
+// 	case <-done:
+// 		log.Infof("Ping exchange completed")
+// 		log.Infof("%v", done)
+// 	case <-time.After(5 * time.Second):
+// 		log.Errorf("Ping exchange timed out")
+// 		log.Errorf("%v", done)
+// 	}
 
-	// Send Ping
-	node.PingProtocol.Ping(pid)
+// 	stream, err := host.NewStream(ctx, pid, protocol.ID(rend))
+// 	if err != nil {
+// 		log.Errorf("failed to open ping stream to %s: %v", pid, err)
+// 		return
+// 	}
+// 	log.Infof("ping stream to %s opened successfully", pid)
 
-	// Wait for Ping Response
-	select {
-	case <-done:
-		log.Infof("Ping exchange completed")
-	case <-time.After(5 * time.Second):
-		log.Errorf("Ping exchange timed out")
-	}
+// 	defer stream.Close()
 
-	stream, err := host.NewStream(ctx, pid, protocol.ID(rend))
-	if err != nil {
-		log.Errorf("failed to open ping stream to %s: %v", pid, err)
-		return
-	}
-	log.Infof("ping stream to %s opened successfully", pid)
+// 	// Send PING message
+// 	if _, err := fmt.Fprintf(stream, "PING\n"); err != nil {
+// 		log.Errorf("failed to send ping to %s: %v", pid, err)
+// 		return
+// 	}
+// 	log.Infof("PING message sent to %s", pid)
 
-	defer stream.Close()
+// 	// Read PONG response
+// 	buf := make([]byte, 5)
+// 	n, err := stream.Read(buf)
+// 	if err != nil {
+// 		if err == io.EOF {
+// 			log.Infof("stream closed by peer %s after sending EOF", pid)
+// 		} else {
+// 			log.Errorf("failed to read PONG from %s: %v", pid, err)
+// 		}
+// 		return
+// 	}
 
-	// Send PING message
-	if _, err := fmt.Fprintf(stream, "PING\n"); err != nil {
-		log.Errorf("failed to send ping to %s: %v", pid, err)
-		return
-	}
-	log.Infof("PING message sent to %s", pid)
+// 	response := string(buf[:n])
+// 	log.Infof("Received message from %s: %s", pid, response)
 
-	// Read PONG response
-	buf := make([]byte, 5)
-	n, err := stream.Read(buf)
-	if err != nil {
-		if err == io.EOF {
-			log.Infof("stream closed by peer %s after sending EOF", pid)
-		} else {
-			log.Errorf("failed to read PONG from %s: %v", pid, err)
-		}
-		return
-	}
-
-	response := string(buf[:n])
-	log.Infof("Received message from %s: %s", pid, response)
-
-	// Check if the message is PONG
-	if response == "PONG\n" {
-		log.Infof("Received valid PONG from %s", pid)
-		// connectedPeers[pid] = true
-	} else {
-		log.Warnf("Unexpected response from %s: str'%s' byte'%08b'", pid, response, response)
-	}
-}
+// 	// Check if the message is PONG
+// 	if response == "PONG\n" {
+// 		log.Infof("Received valid PONG from %s", pid)
+// 		// connectedPeers[pid] = true
+// 	} else {
+// 		log.Warnf("Unexpected response from %s: str'%s' byte'%08b'", pid, response, response)
+// 	}
+// }
 
 func handleStream(stream network.Stream) {
 	log.Infof("%s: Received stream status request from %s. Node guid: %s", stream.Conn().LocalPeer(), stream.Conn().RemotePeer())
@@ -452,7 +454,7 @@ func assembleRelay(relayAddrInfo peer.AddrInfo, p peer.AddrInfo) (peer.AddrInfo,
 	return targetRelayedInfo, err
 }
 
-func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.AddrInfo, pChan <-chan peer.AddrInfo, connectedPeers map[peer.ID]peer.AddrInfo, rend string, node *ping.Node) {
+func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.AddrInfo, pChan <-chan peer.AddrInfo, connectedPeers map[peer.ID]peer.AddrInfo, rend string) {
 	for p := range pChan {
 		if p.ID == host.ID() {
 			fmt.Printf("host.ID: %v\n", host.ID())
@@ -511,48 +513,28 @@ func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.A
 
 				for i := 0; i < 5; i++ {
 					// stream, err := host.NewStream(ctx, p.ID, protocol.ID(rend))
-					log.Infof("attempting to open stream to peer %s with ID %s", p.ID, protocol.ID(rend))
+					// log.Infof("attempting to open stream to peer %s with ID %s", p.ID, protocol.ID(rend))
 
-					stream, err := host.NewStream(network.WithAllowLimitedConn(context.Background(), rend), targetRelayedInfo.ID, protocol.ID(rend))
-
-					if err != nil {
-						log.Warningf("failed to open stream to peer %s: %v, attempt %d/5", p.ID, err, i)
-						continue
-					}
-					log.Infof("succesfully streaming to %s via relay %s", p.ID, relayAddrInfo.ID)
-
-					log.Infof("protocol %s", stream.Protocol())
-
-					err = stream.SetProtocol(protocol.ID(rend))
-					if err != nil {
-						log.Warningf("error setting protocol %s", err)
-						// continue
-					}
-
-					err = stream.SetProtocol(protocol.ID("/ipfs/id/push/1.0.0"))
-					if err != nil {
-						log.Warningf("error setting protocol %s", err)
-						// continue
-					}
-					log.Infof("protocol %s", stream.Protocol())
-
-					stream.Protocol()
-
-					state := stream.Conn().ConnState()
-					log.Infof("connection id: %s, state: %+v", stream.Conn().ID(), state)
+					// stream, err := host.NewStream(network.WithAllowLimitedConn(context.Background(), rend), targetRelayedInfo.ID, protocol.ID(rend))
 
 					// if err != nil {
-					// 	log.Warningf("error setting protocol")
+					// 	log.Warningf("failed to open stream to peer %s: %v, attempt %d/5", p.ID, err, i)
 					// 	continue
 					// }
+					// log.Infof("succesfully streaming to %s via relay %s", p.ID, relayAddrInfo.ID)
 
-					if _, err := fmt.Fprintf(stream, "TEST\n"); err != nil {
-						log.Errorf("failed to send ping to %s: %v", relayAddrInfo, err)
-						return
-					}
-					log.Infof("TEST message sent to %s", relayAddrInfo)
-					log.Infof("%s: sent stream status request from %s. Node guid: %s", stream.Conn().RemotePeer(), stream.Conn().RemotePeer())
-					log.Infof("direction, opened, limited: %v", stream.Stat())
+					// log.Infof("protocol %s", stream.Protocol())
+
+					// state := stream.Conn().ConnState()
+					// log.Infof("connection id: %s, state: %+v", stream.Conn().ID(), state)
+
+					// if _, err := fmt.Fprintf(stream, "TEST\n"); err != nil {
+					// 	log.Errorf("failed to send ping to %s: %v", relayAddrInfo, err)
+					// 	return
+					// }
+					// log.Infof("TEST message sent to %s", relayAddrInfo)
+					// log.Infof("%s: sent stream status request from %s. Node guid: %s", stream.Conn().RemotePeer(), stream.Conn().RemotePeer())
+					// log.Infof("direction, opened, limited: %v", stream.Stat())
 					// stream.Read()
 					// stream.Write([]byte "test)
 					// stream.Close()
@@ -560,6 +542,8 @@ func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.A
 						OBVIOUSLY WE DONT HAVE A READ HERE SO WE WON"T SEE ANY RESPONSE HERE
 						USE pingPeer to get messages back :P :clown:
 					*/
+					log.Infof("skipping TEST stream")
+					log.Infof("adding %+v to connectedPeers ID %s", targetRelayedInfo, p.ID)
 					connectedPeers[p.ID] = targetRelayedInfo
 					break
 				}
@@ -579,21 +563,6 @@ func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.A
 			connectedPeers[p.ID] = p
 		}
 
-		done := make(chan bool)
-		node := ping.NewNode(host, done)
-
-		// Send Ping
-		log.Infof("Trying ping protocol?????")
-
-		node.PingProtocol.Ping(p.ID)
-
-		// Wait for Ping Response
-		select {
-		case <-done:
-			log.Infof("Ping exchange completed")
-		case <-time.After(5 * time.Second):
-			log.Errorf("Ping exchange timed out")
-		}
 	}
 }
 
@@ -645,7 +614,8 @@ func main() {
 	reserveRelay(ctx, host, relayInfo)
 
 	done := make(chan bool)
-	node := ping.NewNode(host, done)
+	pingprotocol := ping.NewPingProtocol(host, done)
+	// host.SetStreamHandler(protocol.ID(rend), handleStream)
 
 	peerChan, err := searchForPeers(ctx, kademliaDHT, rend)
 	if err != nil {
@@ -654,7 +624,7 @@ func main() {
 
 	connectedPeers := make(map[peer.ID]peer.AddrInfo)
 
-	connectToPeers(ctx, host, relayAddresses, peerChan, connectedPeers, rend, node)
+	connectToPeers(ctx, host, relayAddresses, peerChan, connectedPeers, rend)
 
 	// connectToNodeRunner(ctx, host, relayInfo, peerChan, rend)
 	ticker := time.NewTicker(15 * time.Second)
@@ -672,11 +642,20 @@ func main() {
 				if peerID == host.ID() || isBootstrapPeer(peerID) || containsPeer(relayAddresses, peerID) {
 					continue
 				}
+				log.Infof("Pinging peer: %s", peerID)
+				go func(pid peer.ID) {
+					pingprotocol.Ping(pid)
 
-				go pingPeer(ctx, host, peerID, rend, connectedPeers)
+					select {
+					case <-done:
+						log.Infof("Ping exchange completed")
+					case <-time.After(5 * time.Second):
+						log.Errorf("Ping exchange timed out")
+					}
+				}(peerID)
+				// go pingPeer(ctx, host, peerID, rend, connectedPeers, pingprotocol)
 			}
 		}
 	}()
-
 	select {}
 }

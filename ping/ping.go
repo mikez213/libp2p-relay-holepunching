@@ -12,11 +12,11 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 
-	proto "github.com/gogo/protobuf/proto"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	p2p "github.com/mikez213/libp2p-relay-holepunching/ping/pb"
+	proto "google.golang.org/protobuf/proto"
 )
 
 var log = logging.Logger("ping-log")
@@ -57,9 +57,9 @@ func (p *PingProtocol) onPingRequest(s network.Stream) {
 	log.Debug("got ping request 11111")
 	// get request data
 	data := &p2p.PingRequest{}
-	log.Debug("%+v", data)
+	log.Debugf("%+v", data)
 	buf, err := io.ReadAll(s)
-	log.Debug("%+v", buf)
+	log.Debugf("%+v", buf)
 
 	if err != nil {
 		log.Error(err)
@@ -122,6 +122,10 @@ func (p *PingProtocol) Ping(target peer.ID) bool {
 
 	// create message data
 	req := &p2p.PingRequest{
+		// state         protoimpl.MessageState
+		// sizeCache     protoimpl.SizeCache
+		// unknownFields protoimpl.UnknownFields
+
 		MessageData: fmt.Sprintf("ping prot from %s at %s", p.host.ID(), time.Now().Format(time.RFC3339)),
 		Message:     fmt.Sprintf("hello prot from %s!", p.host.ID()),
 	}

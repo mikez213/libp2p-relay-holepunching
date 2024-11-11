@@ -25,17 +25,17 @@ message PingResponse {
 }
 
 
-// message StartStreamRequest {
-//     string project_id = 1;
-//     string dev_id = 2;
-//     string api_key = 3;
-//     string request_issue_need = 4;
+message StartStreamRequest {
+    string project_id = 1;
+    string dev_id = 2;
+    string api_key = 3;
+    string request_issue_need = 4;
 
-//     map<string, string> config_options = 5;
-//   }
+    map<string, string> config_options = 5;
+  }
   
-//   message StopStreamRequest {
-//     string project_id = 1;
-//     string dev_id = 2;
-//     string api_key = 3;
-//   }
+  message StopStreamRequest {
+    string project_id = 1;
+    string dev_id = 2;
+    string api_key = 3;
+  }
