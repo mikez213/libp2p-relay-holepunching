@@ -6,7 +6,6 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/uuid v1.6.0
 	github.com/libp2p/go-libp2p v0.37.0
-	github.com/libp2p/go-libp2p/examples v0.0.0-20241105183324-10045d1e005d
 	google.golang.org/protobuf v1.35.1
 )
 
