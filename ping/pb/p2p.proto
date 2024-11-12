@@ -24,18 +24,52 @@ message PingResponse {
     // ... add any additional message data here
 }
 
-
-message StartStreamRequest {
-    string project_id = 1;
-    string dev_id = 2;
+message id {
+    string project_id = 1;  //proj
+    string dev_id = 2;  //developer id
     string api_key = 3;
-    string request_issue_need = 4;
-
-    map<string, string> config_options = 5;
+  }
+  
+  message StartStreamRequest {
+    id id = 1;
+    string request_issue_need = 2;
+    map<string, string> config_options = 3;
+  }
+  
+  message StartStreamResponse {
+    id id = 1;
+    bool is_streaming = 2;
+    string status_message = 3;
   }
   
   message StopStreamRequest {
-    string project_id = 1;
-    string dev_id = 2;
-    string api_key = 3;
+    id id = 1;
   }
+          
+  message StopStreamResponse {
+    id id = 1;
+  }
+  
+  message StatusRequest {
+    id id = 1;
+  }
+  
+  message StatusResponse {
+    bool is_streaming = 1;
+    string status_message = 2;
+    // map<string, string> config_options = 3;
+  }
+  //not identify that would collide
+  message InfoRequest {
+    string host_id = 1;
+  }
+  
+  message InfoResponse {
+    string host_id = 1;
+    string public_ip = 2;
+    string private_ip = 3;
+    bool is_public = 4;
+    string client_version = 5;
+    map<string, string> system_config = 6;
+  }
+  

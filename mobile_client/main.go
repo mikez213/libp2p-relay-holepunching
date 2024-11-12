@@ -626,6 +626,12 @@ func main() {
 
 	connectToPeers(ctx, host, relayAddresses, peerChan, connectedPeers, rend)
 
+	projectID := "project_test_1234"
+	devID := "dev_1234"
+	apiKey := "api_1234"
+	issueNeed := "issue_1234"
+	configOptions := map[string]string{"val1": "key1", "val2": "key2"}
+
 	// connectToNodeRunner(ctx, host, relayInfo, peerChan, rend)
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
@@ -644,11 +650,15 @@ func main() {
 				}
 				log.Infof("Pinging peer: %s", peerID)
 				go func(pid peer.ID) {
-					pingprotocol.Ping(pid)
+					// pingprotocol.Ping(pid)
+					pingprotocol.StartStream(peerID, projectID, devID, apiKey, issueNeed, configOptions)
 
 					select {
 					case <-done:
 						log.Infof("Ping exchange completed")
+						time.Sleep(5 * time.Second)
+						pingprotocol.StopStream(peerID, projectID, devID, apiKey)
+
 					case <-time.After(5 * time.Second):
 						log.Errorf("Ping exchange timed out")
 					}
@@ -657,5 +667,6 @@ func main() {
 			}
 		}
 	}()
+
 	select {}
 }

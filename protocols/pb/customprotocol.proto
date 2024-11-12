@@ -5,29 +5,39 @@ package customprotocol;
 option go_package = "github.com/mikez213/libp2p-relay-holepunching/protocols/customprotocol;customprotocol";
 
 message id {
-  string project_id = 1;  
+  string project_id = 1;  //proj
   string dev_id = 2;  //developer id
   string api_key = 3;
 }
+
 message StartStreamRequest {
   id id = 1;
   string request_issue_need = 2;
   map<string, string> config_options = 3;
 }
 
+message StartStreamRepsonse {
+  id id = 1;
+  bool is_streaming = 2;
+  string status_message = 3;
+}
+
 message StopStreamRequest {
   id id = 1;
 }
 
+message StopStreamResponse {
+  id id = 1;
+}
+
 message StatusRequest {
-  string project_id = 1;
-  string dev_id = 2;
-  string api_key = 3;
+  id id = 1;
 }
 
 message StatusResponse {
   bool is_streaming = 1;
   string status_message = 2;
+  // map<string, string> config_options = 3;
 }
 
 message IdentifyRequest {
