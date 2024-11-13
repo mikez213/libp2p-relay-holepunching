@@ -96,10 +96,8 @@ func init() {
 		}
 		bootstrapPeerIDs = append(bootstrapPeerIDs, pid)
 	}
-
-	// logging.SetAllLoggers(logging.LevelInfo)
-	logging.SetAllLoggers(logging.LevelDebug)
-
+	logging.SetAllLoggers(logging.LevelWarn)
+	logging.SetLogLevel("dht", "error") // get rid of  network size estimator track peers: expected bucket size number of peers
 	logging.SetLogLevel("node_runner_log", "debug")
 }
 
@@ -413,13 +411,19 @@ func containsPeer(relayAddresses []peer.AddrInfo, pid peer.ID) bool {
 	return false
 }
 
-func reserveRelay(ctx context.Context, host host.Host, relayInfo *peer.AddrInfo) {
-	_, err := client.Reserve(ctx, host, *relayInfo)
+func reserveRelay(ctx context.Context, host host.Host, relayInfo *peer.AddrInfo) (*client.Reservation, error) {
+	var reservation *client.Reservation
+	reservation, err := client.Reserve(ctx, host, *relayInfo)
 	if err != nil {
 		log.Errorf("failed to receive a relay reservation from relay %v", err)
-		return
+		return reservation, err
 	}
 	log.Infof("relay reservation successful")
+	log.Debugf("All reservation info: %+v", reservation)
+	log.Debugf("Voucher relay info: %+v", reservation.Voucher.Relay.Loggable())
+	log.Debugf("Voucher reservation info: %+v", reservation.Voucher)
+
+	return reservation, nil
 }
 
 func announceSelf(ctx context.Context, kademliaDHT *dht.IpfsDHT, rend string) {
@@ -475,23 +479,6 @@ func main() {
 	pingprotocol := ping.NewPingProtocol(host, done)
 
 	announceSelf(ctx, kademliaDHT, rend)
-
-	// connectedPeers := make(map[peer.ID]peer.AddrInfo)
-
-	// done := make(chan bool)
-	// node := ping.NewNode(host, done)
-	// node.Peerstore().AddAddrs(host.ID(), host.Addrs(), peerstore.PermanentAddrTTL)
-	// node.Node
-	// Send Ping
-	// node.PingProtocol.Ping(pid)
-
-	// Wait for Ping Response
-	// select {
-	// case <-done:
-	// 	log.Infof("Ping exchange completed")
-	// case <-time.After(10 * time.Second):
-	// 	log.Errorf("Ping exchange timed out")
-	// }
 
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()

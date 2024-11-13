@@ -79,7 +79,9 @@ func RelayIdentity(keyIndex int) (libp2p.Option, error) {
 }
 
 func initializeLogger() {
-	logging.SetAllLoggers(logging.LevelInfo)
+
+	logging.SetAllLoggers(logging.LevelWarn)
+	logging.SetLogLevel("dht", "error") // get rid of  network size estimator track peers: expected bucket size number of peers
 	logging.SetLogLevel("relaylog", "debug")
 }
 
@@ -146,6 +148,7 @@ func setupRelayService(host host.Host) {
 
 	relayService, err := relay.New(host, relay.WithInfiniteLimits(), relay.WithMetricsTracer(mt))
 	log.Debugf("relayservice %+v", relayService)
+	// mt.RelayStatus(true)
 	// limit resources?
 	if err != nil {
 		log.Infof("Failed to instantiate the relay: %v", err)
