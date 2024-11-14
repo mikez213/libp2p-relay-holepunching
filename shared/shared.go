@@ -73,15 +73,4 @@ func init() {
 		bootstrapPeerIDs = append(bootstrapPeerIDs, pid)
 	}
 
-	logging.SetAllLoggers(logging.LevelInfo)
-	logging.SetLogLevel("chatlog", "debug")
-}
-
-func isBootstrapPeer(peerID peer.ID) bool {
-	for _, bootstrapID := range bootstrapPeerIDs {
-		if peerID == bootstrapID {
-			return true
-		}
-	}
-	return false
 }

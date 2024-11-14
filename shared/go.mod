@@ -2,7 +2,10 @@ module github.com/mikez213/libp2p-relay-holepunching/shared
 
 go 1.23.1
 
-require github.com/libp2p/go-libp2p v0.37.0
+require (
+	github.com/ipfs/go-log/v2 v2.5.1
+	github.com/libp2p/go-libp2p v0.37.0
+)
 
 require (
 	github.com/benbjohnson/clock v1.3.5 // indirect
@@ -26,7 +29,6 @@ require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/ipfs/go-cid v0.4.1 // indirect
-	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
