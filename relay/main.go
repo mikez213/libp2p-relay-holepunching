@@ -79,9 +79,11 @@ func RelayIdentity(keyIndex int) (libp2p.Option, error) {
 }
 
 func initializeLogger() {
+	logging.SetAllLoggers(logging.LevelDebug)
 
-	logging.SetAllLoggers(logging.LevelWarn)
-	logging.SetLogLevel("dht", "error") // get rid of  network size estimator track peers: expected bucket size number of peers
+	// logging.SetAllLoggers(logging.LevelWarn)
+	// logging.SetLogLevel("dht", "error") // get rid of  network size estimator track peers: expected bucket size number of peers
+
 	logging.SetLogLevel("relaylog", "debug")
 }
 
@@ -139,7 +141,7 @@ func createHost(ctx context.Context, relayOpt libp2p.Option, listenPort int) hos
 	return host
 }
 
-func setupRelayService(host host.Host) {
+func setupRelayService(host host.Host) *relay.Relay {
 	mt := relay.NewMetricsTracer()
 	log.Debugf("Relay timeouts: %d %d %d",
 		relay.ConnectTimeout,
@@ -150,10 +152,13 @@ func setupRelayService(host host.Host) {
 	log.Debugf("relayservice %+v", relayService)
 	// mt.RelayStatus(true)
 	// limit resources?
+	// mt.RelayStatus(true)
+	// var status pb.Status
 	if err != nil {
-		log.Infof("Failed to instantiate the relay: %v", err)
-		return
+		log.Fatalf("Failed to instantiate the relay: %v", err)
+		return nil
 	}
+	return relayService
 }
 
 func logHostInfo(host host.Host) {
@@ -220,6 +225,11 @@ func setupDHTRefresh(kademliaDHT *dht.IpfsDHT) {
 			peers := kademliaDHT.RoutingTable().ListPeers()
 			log.Infof("Routing table peers (%d): %v", len(peers), peers)
 			// log.Infof("Relay Status (%d): %v", mt.RelayStatus())
+			// var status pb.Status
+			// mt.ConnectionRequestHandled(status)
+			// log.Info(status)
+			// mt.ReservationRequestHandled(status)
+			// log.Info(status)
 		}
 	}()
 }
@@ -367,8 +377,9 @@ func main() {
 
 	host := createHost(ctx, relayOpt, listenPort)
 
-	setupRelayService(host)
+	relayService := setupRelayService(host)
 
+	log.Info(relayService)
 	logHostInfo(host)
 
 	kademliaDHT := createDHT(ctx, host)
@@ -381,7 +392,7 @@ func main() {
 
 	logHostInfo(host)
 
-	// setupDHTRefresh(kademliaDHT)
+	setupDHTRefresh(kademliaDHT)
 
 	// host.SetStreamHandler(NodeRunnerProtocol, func(s network.Stream) {
 	// 	handleStream(strea)

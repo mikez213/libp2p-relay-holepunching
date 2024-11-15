@@ -96,8 +96,10 @@ func init() {
 		}
 		bootstrapPeerIDs = append(bootstrapPeerIDs, pid)
 	}
-	logging.SetAllLoggers(logging.LevelWarn)
-	logging.SetLogLevel("dht", "error") // get rid of  network size estimator track peers: expected bucket size number of peers
+	logging.SetAllLoggers(logging.LevelDebug)
+
+	// logging.SetAllLoggers(logging.LevelWarn)
+	// logging.SetLogLevel("dht", "error") // get rid of  network size estimator track peers: expected bucket size number of peers
 	logging.SetLogLevel("node_runner_log", "debug")
 }
 
@@ -451,17 +453,8 @@ func main() {
 	host, kademliaDHT := createHost(ctx, nodeOpt, relayInfo)
 
 	rend := "/customprotocol/1.0.0"
-	// rend := "meetmee"
-	// rend := "/ping"
 	// rend := "/ipfs/id/1.0.0"
 	identify.ActivationThresh = 1
-	// rend = identify.ID
-
-	// rend := ping.ID
-
-	// rend := "/libp2p/circuit/relay/0.2.0/hop"
-	// rend := "/libp2p/dcutr"
-
 	// setupStreamHandler(host, rend)
 	host.SetStreamHandler(protocol.ID(rend), handleStream)
 
@@ -480,7 +473,14 @@ func main() {
 
 	announceSelf(ctx, kademliaDHT, rend)
 
-	ticker := time.NewTicker(15 * time.Second)
+	projectID := "project_test_1234"
+	devID := "dev_1234"
+	apiKey := "api_1234"
+	issueNeed := "issue_1234"
+	hostID := "host_1234"
+	configOptions := map[string]string{"val1": "key1", "val2": "key2"}
+
+	ticker := time.NewTicker(7 * time.Second)
 	defer ticker.Stop()
 
 	go func() {
@@ -497,10 +497,24 @@ func main() {
 				}
 				// log.Info("WOULD PING HERE BUT CANCELED @@@@@")
 				// go pingPeer(ctx, host, peerID, rend, connectedPeers, pingprotocol)
-				log.Infof("protocol Pinging peer: %s", peerID)
-				go func(pid peer.ID) {
-					pingprotocol.Ping(pid)
-				}(peerID)
+				log.Infof("protocol actions for: %s", peerID)
+
+				log.Info("mass sending protocols to %s", peerID)
+				pingprotocol.Ping(peerID)
+				pingprotocol.Status(peerID, projectID, devID, apiKey)
+				pingprotocol.Info(peerID, hostID)
+				pingprotocol.StartStream(peerID, projectID, devID, apiKey, issueNeed, configOptions)
+				time.Sleep(1 * time.Second)
+				pingprotocol.Status(peerID, projectID, devID, apiKey)
+				pingprotocol.StopStream(peerID, projectID, devID, apiKey)
+
+				select {
+				case <-done:
+					log.Infof(" exchange completed")
+
+				case <-time.After(5 * time.Second):
+					log.Errorf(" exchange timed out")
+				}
 			}
 		}
 	}()

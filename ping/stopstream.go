@@ -66,7 +66,7 @@ func (h *StopStreamResponseHandler) Handle(s network.Stream, from peer.ID, data 
 		return err
 	}
 
-	log.Infof("Received StopStreamResponse from %s")
+	log.Infof("Received StopStreamResponse from %s", from)
 	h.protocol.done <- true
 	return nil
 }
