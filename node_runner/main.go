@@ -26,6 +26,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 
@@ -96,8 +97,10 @@ func init() {
 		}
 		bootstrapPeerIDs = append(bootstrapPeerIDs, pid)
 	}
+	// logging.SetAllLoggers(logging.LevelDebug)
+
 	logging.SetAllLoggers(logging.LevelWarn)
-	logging.SetLogLevel("dht", "error") // get rid of  network size estimator track peers: expected bucket size number of peers
+	// logging.SetLogLevel("dht", "error") // get rid of  network size estimator track peers: expected bucket size number of peers
 	logging.SetLogLevel("node_runner_log", "debug")
 }
 
@@ -311,6 +314,18 @@ func createHost(ctx context.Context, nodeOpt libp2p.Option, relayInfo *peer.Addr
 
 		return cfg.Apply(libp2p.ListenAddrs(listenAddrs...))
 	}
+	// prevents this error:
+	// DEBUG   rcmgr   resource-manager/scope.go:480
+	// blocked stream from constraining edge
+	// {"scope": "stream-907", "edge": "peer:12D3KooWJuteouY1d5SYFcAUAYDVPjFD8MUBgqsdjZfBkAecCS2Y",
+	//"direction": "Inbound", "current": 378, "attempted": 1, "limit": 378, "stat":
+	//{"NumStreamsInbound":378,"NumStreamsOutbound":0,"NumConnsInbound":0,"NumConnsOutbound":1,"NumFD":0,"Memory":99352576},
+	// "error": "peer:12D3KooWJuteouY1d5SYFcAUAYDVPjFD8MUBgqsdjZfBkAecCS2Y:
+	//cannot reserve inbound stream: resource limit exceeded"}
+	rcmgr, err := rcmgr.NewResourceManager(rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits))
+	if err != nil {
+		log.Fatalf("could not create new resource manager: %w", err)
+	}
 
 	host, err := libp2p.New(
 		nodeOpt,
@@ -326,6 +341,7 @@ func createHost(ctx context.Context, nodeOpt libp2p.Option, relayInfo *peer.Addr
 			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeClient))
 			return kademliaDHT, nil
 		}),
+		libp2p.ResourceManager(rcmgr),
 	)
 	if err != nil {
 		log.Fatalf("failed to create libp2p host: %v", err)
@@ -451,17 +467,8 @@ func main() {
 	host, kademliaDHT := createHost(ctx, nodeOpt, relayInfo)
 
 	rend := "/customprotocol/1.0.0"
-	// rend := "meetmee"
-	// rend := "/ping"
 	// rend := "/ipfs/id/1.0.0"
 	identify.ActivationThresh = 1
-	// rend = identify.ID
-
-	// rend := ping.ID
-
-	// rend := "/libp2p/circuit/relay/0.2.0/hop"
-	// rend := "/libp2p/dcutr"
-
 	// setupStreamHandler(host, rend)
 	host.SetStreamHandler(protocol.ID(rend), handleStream)
 
@@ -471,16 +478,25 @@ func main() {
 	relayAddresses := constructRelayAddresses(host, relayInfo)
 
 	log.Infof("waiting 10 sec for stability")
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	reserveRelay(ctx, host, relayInfo)
+	time.Sleep(5 * time.Second)
+
 	done := make(chan bool)
 
 	pingprotocol := ping.NewPingProtocol(host, done)
 
 	announceSelf(ctx, kademliaDHT, rend)
 
-	ticker := time.NewTicker(15 * time.Second)
+	projectID := "project_test_1234"
+	devID := "dev_1234"
+	apiKey := "api_1234"
+	issueNeed := "issue_1234"
+	hostID := "host_1234"
+	configOptions := map[string]string{"val1": "key1", "val2": "key2"}
+
+	ticker := time.NewTicker(7 * time.Second)
 	defer ticker.Stop()
 
 	go func() {
@@ -497,10 +513,24 @@ func main() {
 				}
 				// log.Info("WOULD PING HERE BUT CANCELED @@@@@")
 				// go pingPeer(ctx, host, peerID, rend, connectedPeers, pingprotocol)
-				log.Infof("protocol Pinging peer: %s", peerID)
-				go func(pid peer.ID) {
-					pingprotocol.Ping(pid)
-				}(peerID)
+				log.Infof("protocol actions for: %s", peerID)
+
+				log.Info("mass sending protocols to %s", peerID)
+				pingprotocol.Ping(peerID)
+				pingprotocol.Status(peerID, projectID, devID, apiKey)
+				pingprotocol.Info(peerID, hostID)
+				pingprotocol.StartStream(peerID, projectID, devID, apiKey, issueNeed, configOptions)
+				time.Sleep(1 * time.Second)
+				pingprotocol.Status(peerID, projectID, devID, apiKey)
+				pingprotocol.StopStream(peerID, projectID, devID, apiKey)
+
+				select {
+				case <-done:
+					log.Infof(" exchange completed")
+
+				case <-time.After(5 * time.Second):
+					log.Errorf(" exchange timed out")
+				}
 			}
 		}
 	}()

@@ -11,6 +11,7 @@ require (
 )
 
 replace github.com/mikez213/libp2p-relay-holepunching/ping => ./ping
+replace github.com/mikez213/libp2p-relay-holepunching/shared => ./shared
 
 require (
 	github.com/benbjohnson/clock v1.3.5 // indirect

@@ -286,7 +286,9 @@ func (p *PingProtocol) Info(target peer.ID, hostID string) bool {
 // data: reference of protobuf go data object to send (not the object itself)
 // s: network stream to write the data to
 func (p *PingProtocol) sendProtoMessage(id peer.ID, pid protocol.ID, data proto.Message) bool {
-	s, err := p.host.NewStream(network.WithAllowLimitedConn(context.Background(), string(pid)), id, pid)
+	log.Info(p.host.Peerstore().PeersWithAddrs())
+	s, err := p.host.NewStream(context.Background(), id, pid)
+	// network.WithAllowLimitedConn(context.Background(), string(pid))
 	if err != nil {
 		log.Error(err)
 		return false
@@ -301,333 +303,29 @@ func (p *PingProtocol) sendProtoMessage(id peer.ID, pid protocol.ID, data proto.
 
 	n, err := s.Write(bytes)
 	if err != nil {
-		log.Fatalf("%d, %+v", n, err)
+		log.Errorf("%d, '%+v'", n, err)
 		s.Reset()
-		return false
+
+		retry := true
+		if retry {
+			log.Warnf("retry protoMessage is true, trying to stream again!")
+			peers := p.host.Network().Peers()
+			log.Debugf("peers %s=V", peers)
+			time.Sleep(2 * time.Second)
+			stream, err := p.host.NewStream(network.WithAllowLimitedConn(context.Background(), string(pid)), id, pid)
+			if err != nil {
+				log.Error(err)
+			}
+			defer stream.Close()
+			n, err := stream.Write(bytes)
+			if err != nil {
+				log.Errorf("%d, '%+v'", n, err)
+				stream.Reset()
+				return false
+			}
+		} else {
+			return false
+		}
 	}
 	return true
 }
-
-//// UNUSED FUNCTIONS
-
-// remote peer requests handler
-func (p *PingProtocol) onPingRequest(s network.Stream) {
-	log.Debug("got ping request 11111")
-	// get request data
-	data := &p2p.PingRequest{}
-	log.Debugf("%+v", data)
-	buf, err := io.ReadAll(s)
-	log.Debugf("%+v", buf)
-
-	if err != nil {
-		log.Error(err)
-		s.Reset()
-		return
-	}
-	s.Close()
-
-	// unmarshal it
-	err = proto.Unmarshal(buf, data)
-	if err != nil {
-		log.Errorf("%+v", err)
-		return
-	}
-
-	log.Infof("%s: Received ping request from %s. Message: %s", s.Conn().LocalPeer(), s.Conn().RemotePeer(), data.Message)
-
-	// generate response message
-	log.Infof("%s: Sending ping response to %s. Message id: %s...", s.Conn().LocalPeer(), s.Conn().RemotePeer(), data.MessageData)
-
-	resp := &p2p.PingResponse{
-		MessageData: fmt.Sprintf("Response to %s", data.MessageData),
-		Message:     fmt.Sprintf("Ping response from %s", p.host.ID()),
-	}
-
-	// send the response
-	ok := p.sendProtoMessage(s.Conn().RemotePeer(), pingResponse, resp)
-
-	if ok {
-		log.Infof("%s: Ping response to %s sent.", s.Conn().LocalPeer().String(), s.Conn().RemotePeer().String())
-	} else {
-		log.Errorf("%s: Error in Ping response to %s", s.Conn().LocalPeer().String(), s.Conn().RemotePeer().String())
-	}
-
-	p.done <- true
-}
-
-// remote ping response handler
-func (p *PingProtocol) onPingResponse(s network.Stream) {
-	// data := &p2p.PingResponse{}
-	buf, err := io.ReadAll(s)
-	if err != nil {
-		s.Reset()
-		log.Error(err)
-		return
-	}
-	s.Close()
-
-	var resp p2p.PingResponse
-	if err := proto.Unmarshal(buf, &resp); err != nil {
-		log.Error(err, "Failed to unmarshal PingResponse")
-		s.Reset()
-		return
-	}
-
-	log.Infof("Received PingResponse from %s: %s", s.Conn().RemotePeer(), resp.MessageData)
-	p.done <- true
-}
-
-// handles incoming StartStreamRequest messages
-func (p *PingProtocol) onStartStreamRequest(s network.Stream) {
-	defer s.Close()
-	log.Debug("Received StartStreamRequest")
-
-	buf, err := io.ReadAll(s)
-	if err != nil {
-		log.Error(err, "Failed to read StartStreamRequest")
-		s.Reset()
-		return
-	}
-
-	var req p2p.StartStreamRequest
-	if err := proto.Unmarshal(buf, &req); err != nil {
-		log.Error(err, "Failed to unmarshal StartStreamRequest")
-		s.Reset()
-		return
-	}
-
-	log.Infof("Received StartStreamRequest from %s: ProjectID=%s, DevID=%s, APIKey=%s",
-		s.Conn().RemotePeer(), req.Id.ProjectId, req.Id.DevId, req.Id.ApiKey)
-
-	// TODO ADD ACTUAL XR STREAMING LOGIC HERE! (use channel to indicate to outsider program)
-	// currenlty assume it just works
-
-	isStreaming := true
-	statusMessage := "SUCCESS" //replace str with proto value
-
-	// Generate StartStreamResponse
-	resp := &p2p.StartStreamResponse{
-		Id:            &p2p.Id{ProjectId: req.Id.ProjectId, DevId: req.Id.DevId, ApiKey: req.Id.ApiKey},
-		IsStreaming:   isStreaming,
-		StatusMessage: statusMessage,
-	}
-
-	// send the response
-	ok := p.sendProtoMessage(s.Conn().RemotePeer(), startStreamResponse, resp)
-
-	if ok {
-		log.Infof("%s: startStreamResponse to %s sent.", s.Conn().LocalPeer().String(), s.Conn().RemotePeer().String())
-	} else {
-		log.Errorf("%s: $$$$$ Error in startStreamResponse to %s", s.Conn().LocalPeer().String(), s.Conn().RemotePeer().String())
-	}
-
-	log.Infof("Sent StartStreamResponse to %s: IsStreaming=%v, StatusMessage=%s",
-		s.Conn().RemotePeer(), isStreaming, statusMessage)
-	p.done <- true
-}
-
-// confirming the stream has been Started
-func (p *PingProtocol) onStartStreamResponse(s network.Stream) {
-	// data := &p2p.PingResponse{}
-	buf, err := io.ReadAll(s)
-	if err != nil {
-		s.Reset()
-		log.Error(err)
-		return
-	}
-	s.Close()
-
-	var resp p2p.StartStreamResponse
-	if err := proto.Unmarshal(buf, &resp); err != nil {
-		log.Error(err, "Failed to unmarshal StartStreamResponse")
-		s.Reset()
-		return
-	}
-
-	//TODO: add confirmation that we have gotten the actual xr stream here
-
-	log.Infof("Received StartStreamResponse from %s: IsStreaming=%v, StatusMessage=%s", s.Conn().RemotePeer(), resp.IsStreaming, resp.StatusMessage)
-	p.done <- true
-}
-
-// handles incoming StopStreamResponse messages
-func (p *PingProtocol) onStopStreamRequest(s network.Stream) {
-	defer s.Close()
-	log.Debug("Received onStopStreamRequest")
-
-	buf, err := io.ReadAll(s)
-	if err != nil {
-		log.Error(err, "Failed to read onStopStreamRequest")
-		s.Reset()
-		return
-	}
-
-	var req p2p.StopStreamRequest
-	if err := proto.Unmarshal(buf, &req); err != nil {
-		log.Error(err, "Failed to unmarshal onStopStreamRequest")
-		s.Reset()
-		return
-	}
-
-	log.Infof("Received onStopStreamRequest from %s: ProjectID=%s, DevID=%s, APIKey=%s",
-		s.Conn().RemotePeer(), req.Id.ProjectId, req.Id.DevId, req.Id.ApiKey)
-
-	// TODO ADD ACTUAL XR STREAMING LOGIC HERE! (use channel to indicate to outsider program)
-	// currenlty assume it just works
-
-	// Generate StartStreamResponse
-	resp := &p2p.StopStreamResponse{
-		Id: &p2p.Id{ProjectId: req.Id.ProjectId, DevId: req.Id.DevId, ApiKey: req.Id.ApiKey},
-	}
-
-	// send the response
-	ok := p.sendProtoMessage(s.Conn().RemotePeer(), startStreamResponse, resp)
-
-	if ok {
-		log.Infof("%s: StopStreamResponse to %s sent.", s.Conn().LocalPeer().String(), s.Conn().RemotePeer().String())
-	} else {
-		log.Errorf("%s: $$$$$ Error in StopStreamResponse to %s", s.Conn().LocalPeer().String(), s.Conn().RemotePeer().String())
-	}
-
-	log.Infof("Sent StopStreamResponse to %s")
-	p.done <- true
-}
-
-// confirming the stream has been Started
-func (p *PingProtocol) onStopStreamResponse(s network.Stream) {
-	// data := &p2p.PingResponse{}
-	buf, err := io.ReadAll(s)
-	if err != nil {
-		s.Reset()
-		log.Error(err)
-		return
-	}
-	s.Close()
-
-	var resp p2p.StopStreamResponse
-	if err := proto.Unmarshal(buf, &resp); err != nil {
-		log.Error(err, "Failed to unmarshal StopStreamResponse")
-		s.Reset()
-		return
-	}
-
-	//TODO: add confirmation that we have gotten the actual xr stream here
-
-	log.Infof("Received StopStreamResponse from %s", s.Conn().RemotePeer())
-	p.done <- true
-}
-
-// var message proto.Message
-
-// switch string(cur_protocol) {
-// case pingRequest:
-// 	message = &p2p.PingRequest{}
-// case startStreamRequest:
-// 	message = &p2p.StartStreamRequest{}
-// case stopStreamRequest:
-// 	message = &p2p.StopStreamRequest{}
-// case statusRequest:
-// 	message = &p2p.StatusRequest{}
-// case infoRequest:
-// 	message = &p2p.InfoRequest{}
-// default:
-// 	message = nil
-// 	log.Errorf("Unknown request protocol ID: %s", cur_protocol)
-// 	s.Reset()
-// 	return
-// }
-
-// if err := proto.Unmarshal(buf, message); err != nil {
-// 	log.Errorf("Failed to unmarshal message for protocol %s: %v", cur_protocol, err)
-// 	s.Reset()
-// 	return
-// }
-
-// log.Debugf("got message %+v", message)
-// //proccessing
-
-// var resp proto.Message
-// switch msg := message.(type) {
-// case *p2p.PingRequest:
-// 	log.Info("type is Ping")
-
-// 	resp = &p2p.PingResponse{
-// 		MessageData: fmt.Sprintf("Response to %s", msg.MessageData),
-// 		Message:     fmt.Sprintf("Ping response from %s", p.host.ID()),
-// 	}
-
-// case *p2p.StartStreamRequest:
-// 	log.Info("type is Start")
-
-// 	// logic for actuall XR streaming goes here
-// 	// processStream(config data)
-
-// 	//mock
-
-// 	isStreaming, statusMessage := process(msg, resp, s)
-
-// 	resp = &p2p.StartStreamResponse{
-// 		Id:            &p2p.Id{ProjectId: msg.Id.ProjectId, DevId: msg.Id.DevId, ApiKey: msg.Id.ApiKey},
-// 		IsStreaming:   isStreaming,
-// 		StatusMessage: statusMessage,
-// 	}
-// case *p2p.StopStreamRequest:
-// 	log.Info("type is Stop")
-
-// 	//logic for stoppingactuall XR streaming goes here
-
-// 	resp = &p2p.StopStreamResponse{
-// 		Id: &p2p.Id{ProjectId: msg.Id.ProjectId, DevId: msg.Id.DevId, ApiKey: msg.Id.ApiKey},
-// 	}
-
-// case *p2p.StatusRequest:
-// 	log.Info("type is Stat")
-
-// case *p2p.InfoRequest:
-// 	log.Info("type is Info")
-
-// default:
-// 	log.Errorf("Unhandled message type for protocol %s", cur_protocol)
-// }
-
-// // send the response
-// ok := p.sendProtoMessage(s.Conn().RemotePeer(), pingResponse, resp)
-
-// if ok {
-// 	log.Infof("%s: %T response to %s sent.", s.Conn().LocalPeer().String(), message, s.Conn().RemotePeer().String())
-// } else {
-// 	log.Errorf("%s: Error in Ping response to %s", s.Conn().LocalPeer().String(), s.Conn().RemotePeer().String())
-// }
-
-// // Read the incoming message
-// buf, err := io.ReadAll(s)
-// if err != nil {
-// 	log.Error(err, "Failed to read incoming request")
-// 	s.Reset()
-// 	return
-// }
-
-// switch string(cur_protocol) {
-// case pingRequest:
-// 	var req p2p.PingRequest
-// case startStreamRequest:
-// 	var req p2p.StartStreamRequest
-// case stopStreamRequest:
-// 	var req p2p.StopStreamRequest
-// case statusRequest:
-// 	var req p2p.StatusRequest
-// case infoRequest:
-// 	var req p2p.InfoRequest
-// default:
-// 	log.Errorf("Unknown request protocol : %s", cur_protocol)
-// 	s.Reset()
-// 	return
-// }
-
-// if err := proto.Unmarshal(buf, &req); err != nil {
-// 	log.Error(err, "Failed to unmarshal PingRequest")
-// 	s.Reset()
-// 	return
-// }
-
-// log.Infof("Received %s from %s: %s", req, s.Conn().RemotePeer(), req.MessageData)

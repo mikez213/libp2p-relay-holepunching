@@ -50,7 +50,7 @@ func RelayIdentity(keyIndex int) (libp2p.Option, error) {
 
 func main() {
 	logging.SetAllLoggers(logging.LevelError)
-	logging.SetLogLevel("bootstrap", "debug")
+	logging.SetLogLevel("bootlog", "debug")
 
 	listenPort := flag.Int("port", 1237, "TCP port to listen on")
 	bootstrapPeers := flag.String("bootstrap", "", "Comma separated bootstrap peer multiaddrs")

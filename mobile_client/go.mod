@@ -5,12 +5,15 @@ go 1.23.1
 require (
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/libp2p/go-libp2p v0.37.0
-	github.com/libp2p/go-libp2p-kad-dht v0.27.0
+	github.com/libp2p/go-libp2p-kad-dht v0.28.0
 	github.com/mikez213/libp2p-relay-holepunching/ping v0.0.0
+	github.com/mikez213/libp2p-relay-holepunching/shared v0.0.0
 	github.com/multiformats/go-multiaddr v0.14.0
 )
 
 replace github.com/mikez213/libp2p-relay-holepunching/ping => ./ping
+
+replace github.com/mikez213/libp2p-relay-holepunching/shared => ./shared
 
 require (
 	github.com/benbjohnson/clock v1.3.5 // indirect
@@ -38,7 +41,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
-	github.com/ipfs/boxo v0.24.0 // indirect
+	github.com/ipfs/boxo v0.24.3 // indirect
 	github.com/ipfs/go-cid v0.4.1 // indirect
 	github.com/ipfs/go-datastore v0.6.0 // indirect
 	github.com/ipld/go-ipld-prime v0.21.0 // indirect
@@ -112,9 +115,9 @@ require (
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	go.opentelemetry.io/otel v1.30.0 // indirect
-	go.opentelemetry.io/otel/metric v1.30.0 // indirect
-	go.opentelemetry.io/otel/trace v1.30.0 // indirect
+	go.opentelemetry.io/otel v1.31.0 // indirect
+	go.opentelemetry.io/otel/metric v1.31.0 // indirect
+	go.opentelemetry.io/otel/trace v1.31.0 // indirect
 	go.uber.org/dig v1.18.0 // indirect
 	go.uber.org/fx v1.23.0 // indirect
 	go.uber.org/mock v0.5.0 // indirect
