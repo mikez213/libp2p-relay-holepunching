@@ -285,3 +285,34 @@ func ReserveRelay(ctx context.Context, host host.Host, relayInfo *peer.AddrInfo)
 	}
 	log.Infof("relay reservation successful")
 }
+
+func Addresses(host host.Host) []string {
+
+	addrs := host.Addrs()
+	out := make([]string, 0, len(addrs))
+
+	hostID := host.ID()
+
+	for _, addr := range addrs {
+		addr := fmt.Sprintf("%s/p2p/%s", addr.String(), hostID.String())
+		out = append(out, addr)
+	}
+
+	return out
+}
+
+func HostGetAddrInfo(host *host.Host) *peer.AddrInfo {
+
+	addresses := Addresses(*host)
+
+	addr := addresses[0]
+
+	maddr, err := multiaddr.NewMultiaddr(addr)
+
+	info, err := peer.AddrInfoFromP2pAddr(maddr)
+
+	if err != nil {
+		log.Error(err)
+	}
+	return info
+}

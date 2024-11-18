@@ -79,9 +79,10 @@ func RelayIdentity(keyIndex int) (libp2p.Option, error) {
 }
 
 func initializeLogger() {
-	logging.SetAllLoggers(logging.LevelDebug)
 
 	// logging.SetAllLoggers(logging.LevelWarn)
+	logging.SetAllLoggers(logging.LevelDebug)
+
 	// logging.SetLogLevel("dht", "error") // get rid of  network size estimator track peers: expected bucket size number of peers
 
 	logging.SetLogLevel("relaylog", "debug")

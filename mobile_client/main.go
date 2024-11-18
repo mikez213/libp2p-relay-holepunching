@@ -26,6 +26,7 @@ import (
 
 	"github.com/libp2p/go-libp2p/core/protocol"
 
+	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	ping "github.com/mikez213/libp2p-relay-holepunching/ping"
 	cmn "github.com/mikez213/libp2p-relay-holepunching/shared"
 
@@ -76,15 +77,15 @@ func init() {
 		cmn.BootstrapPeerIDs = append(cmn.BootstrapPeerIDs, pid)
 	}
 
+	logging.SetAllLoggers(logging.LevelWarn)
 	logging.SetAllLoggers(logging.LevelDebug)
-	// logging.SetAllLoggers(logging.LevelWarn)
+
 	// logging.SetLogLevel("dht", "error") // get rid of  network size estimator track peers: expected bucket size number of peers
 	logging.SetLogLevel("mobile_client_log", "debug")
 }
 
 func pingPeer(ctx context.Context, host host.Host, pid peer.ID, rend string, connectedPeers map[peer.ID]peer.AddrInfo) {
 	log.Infof("attempting to open ping stream to %s", pid)
-	log.Info(cmn.Shearing)
 	// done := make(chan bool)
 	// node := ping.NewNode(host, done)
 	// done := ping.Ping(ctx, host, pid)
@@ -105,7 +106,7 @@ func pingPeer(ctx context.Context, host host.Host, pid peer.ID, rend string, con
 		log.Errorf("failed to open ping stream to %s: %v", pid, err)
 		return
 	}
-	log.Infof("ping stream to %s opened successfully", pid)
+	log.Infof("special stream to %s opened successfully", pid)
 
 	defer stream.Close()
 
@@ -213,6 +214,19 @@ func createHost(ctx context.Context, nodeOpt libp2p.Option, relayInfo *peer.Addr
 		return cfg.Apply(libp2p.ListenAddrs(listenAddrs...))
 	}
 
+	// prevents this error:
+	// DEBUG   rcmgr   resource-manager/scope.go:480
+	// blocked stream from constraining edge
+	// {"scope": "stream-907", "edge": "peer:12D3KooWJuteouY1d5SYFcAUAYDVPjFD8MUBgqsdjZfBkAecCS2Y",
+	//"direction": "Inbound", "current": 378, "attempted": 1, "limit": 378, "stat":
+	//{"NumStreamsInbound":378,"NumStreamsOutbound":0,"NumConnsInbound":0,"NumConnsOutbound":1,"NumFD":0,"Memory":99352576},
+	// "error": "peer:12D3KooWJuteouY1d5SYFcAUAYDVPjFD8MUBgqsdjZfBkAecCS2Y:
+	//cannot reserve inbound stream: resource limit exceeded"}
+	rcmgr, err := rcmgr.NewResourceManager(rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits))
+	if err != nil {
+		log.Fatalf("could not create new resource manager: %w", err)
+	}
+
 	host, err := libp2p.New(
 		nodeOpt,
 		ListenAddrs,
@@ -227,6 +241,7 @@ func createHost(ctx context.Context, nodeOpt libp2p.Option, relayInfo *peer.Addr
 			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeClient))
 			return kademliaDHT, nil
 		}),
+		libp2p.ResourceManager(rcmgr),
 	)
 	if err != nil {
 		log.Fatalf("failed to create libp2p host: %v", err)
@@ -369,37 +384,6 @@ func manualStream(ctx context.Context, host host.Host, p peer.AddrInfo, relayAdd
 
 }
 
-func Addresses(host host.Host) []string {
-
-	addrs := host.Addrs()
-	out := make([]string, 0, len(addrs))
-
-	hostID := host.ID()
-
-	for _, addr := range addrs {
-		addr := fmt.Sprintf("%s/p2p/%s", addr.String(), hostID.String())
-		out = append(out, addr)
-	}
-
-	return out
-}
-
-func hostGetAddrInfo(host *host.Host) *peer.AddrInfo {
-
-	addresses := Addresses(*host)
-
-	addr := addresses[0]
-
-	maddr, err := multiaddr.NewMultiaddr(addr)
-
-	info, err := peer.AddrInfoFromP2pAddr(maddr)
-
-	if err != nil {
-		log.Error(err)
-	}
-	return info
-}
-
 func info_dump(host *host.Host) {
 	log.Info()
 }
@@ -426,6 +410,20 @@ func main() {
 		log.Fatal("no valid bootstrap addrs")
 	}
 
+	// cfg := rcmgr.PartialLimitConfig{
+	// 	System: rcmgr.ResourceLimits{
+	// 		// Allow unlimited inbound and outbound streams
+	// 		StreamsInbound:  rcmgr.Unlimited,
+	// 		StreamsOutbound: rcmgr.Unlimited,
+	// 	},
+	// 	// Everything else is default. The exact values will come from `scaledDefaultLimits` above.
+	// }
+
+	// rm, err := rcmgr.NewResourceManager(limiter, rcmgr.WithMetricsDisabled())
+	// if err != nil {
+	// 	panic(err)
+	// }
+
 	host, kademliaDHT := createHost(ctx, nodeOpt, relayInfo)
 
 	// rend := "/ping"
@@ -444,9 +442,11 @@ func main() {
 	host.SetStreamHandler(protocol.ID(rend), handleStream)
 
 	log.Infof("waiting 10 sec for stability")
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 
-	cmn.ReserveRelay(ctx, host, relayInfo)
+	// cmn.ReserveRelay(ctx, host, relayInfo)
+	time.Sleep(5 * time.Second)
+
 	announceSelf(ctx, kademliaDHT, rend)
 
 	done := make(chan bool)
@@ -482,7 +482,7 @@ func main() {
 				continue
 			}
 
-			log.Infof("current hostGetAddrInfo: %+v", hostGetAddrInfo(&host))
+			log.Infof("current hostGetAddrInfo: %+v", cmn.HostGetAddrInfo(&host))
 
 			for _, peerID := range peers {
 				if peerID == host.ID() || cmn.IsInvalidTarget(relayAddresses, peerID) {
