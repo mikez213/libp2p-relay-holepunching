@@ -26,6 +26,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 
@@ -96,9 +97,9 @@ func init() {
 		}
 		bootstrapPeerIDs = append(bootstrapPeerIDs, pid)
 	}
-	logging.SetAllLoggers(logging.LevelDebug)
+	// logging.SetAllLoggers(logging.LevelDebug)
 
-	// logging.SetAllLoggers(logging.LevelWarn)
+	logging.SetAllLoggers(logging.LevelWarn)
 	// logging.SetLogLevel("dht", "error") // get rid of  network size estimator track peers: expected bucket size number of peers
 	logging.SetLogLevel("node_runner_log", "debug")
 }
@@ -313,6 +314,18 @@ func createHost(ctx context.Context, nodeOpt libp2p.Option, relayInfo *peer.Addr
 
 		return cfg.Apply(libp2p.ListenAddrs(listenAddrs...))
 	}
+	// prevents this error:
+	// DEBUG   rcmgr   resource-manager/scope.go:480
+	// blocked stream from constraining edge
+	// {"scope": "stream-907", "edge": "peer:12D3KooWJuteouY1d5SYFcAUAYDVPjFD8MUBgqsdjZfBkAecCS2Y",
+	//"direction": "Inbound", "current": 378, "attempted": 1, "limit": 378, "stat":
+	//{"NumStreamsInbound":378,"NumStreamsOutbound":0,"NumConnsInbound":0,"NumConnsOutbound":1,"NumFD":0,"Memory":99352576},
+	// "error": "peer:12D3KooWJuteouY1d5SYFcAUAYDVPjFD8MUBgqsdjZfBkAecCS2Y:
+	//cannot reserve inbound stream: resource limit exceeded"}
+	rcmgr, err := rcmgr.NewResourceManager(rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits))
+	if err != nil {
+		log.Fatalf("could not create new resource manager: %w", err)
+	}
 
 	host, err := libp2p.New(
 		nodeOpt,
@@ -328,6 +341,7 @@ func createHost(ctx context.Context, nodeOpt libp2p.Option, relayInfo *peer.Addr
 			kademliaDHT, _ = dht.New(ctx, h, dht.Mode(dht.ModeClient))
 			return kademliaDHT, nil
 		}),
+		libp2p.ResourceManager(rcmgr),
 	)
 	if err != nil {
 		log.Fatalf("failed to create libp2p host: %v", err)
@@ -464,9 +478,11 @@ func main() {
 	relayAddresses := constructRelayAddresses(host, relayInfo)
 
 	log.Infof("waiting 10 sec for stability")
-	time.Sleep(10 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	reserveRelay(ctx, host, relayInfo)
+	time.Sleep(5 * time.Second)
+
 	done := make(chan bool)
 
 	pingprotocol := ping.NewPingProtocol(host, done)
