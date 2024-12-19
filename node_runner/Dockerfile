@@ -6,6 +6,8 @@ COPY node_runner/go.mod node_runner/go.sum ./node_runner/
 
 COPY ping ./node_runner/ping/
 
+COPY shared ./node_runner/shared/
+
 WORKDIR /usr/src/app/node_runner
 
 RUN go mod download
