@@ -1,6 +1,8 @@
 # Peer discovery and streaming with LibP2P
 
 ## Overview
+This is the proof of concept that `mn-warm` came from
+This project uses libp2p framework to facilitate peer-to-peer (P2P) communication through relay nodes and hole punching. The use case is to discover and connect two private peers and to facilitate communication in the form of custom protocol messages.
 
 #### Nodes
 Mobile Client: initiates and looks for a node runner to get a stream from
