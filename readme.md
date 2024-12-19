@@ -23,6 +23,13 @@ Go
 > docker-compose up --build
 ```
 
+There is a transient issue where an unknown persistent stays between sessions causing connections and streams to fail, to fix it either wait an indeterminate amount of time or prune everything
+```sh
+> docker-compose down && docker system prune --force && docker-compose up --build --force-recreate
+
+``
+
+
 ### Protobuf Generation
 
 TODO: Refactor to remove the replacement due to docker
