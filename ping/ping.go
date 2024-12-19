@@ -287,7 +287,18 @@ func (p *PingProtocol) Info(target peer.ID, hostID string) bool {
 // s: network stream to write the data to
 func (p *PingProtocol) sendProtoMessage(id peer.ID, pid protocol.ID, data proto.Message) bool {
 	log.Info(p.host.Peerstore().PeersWithAddrs())
-	s, err := p.host.NewStream(context.Background(), id, pid)
+	var s network.Stream
+	var err error
+
+	if p.host.Network().Connectedness(id) == network.Connected {
+		s, err = p.host.NewStream(context.Background(), id, pid)
+	} else if p.host.Network().Connectedness(id) == network.Limited {
+		s, err = p.host.NewStream(network.WithAllowLimitedConn(context.Background(), string(pid)), id, pid)
+	} else {
+		log.Error("Not connected - protobuf")
+		return false
+	}
+
 	// network.WithAllowLimitedConn(context.Background(), string(pid))
 	if err != nil {
 		log.Error(err)
