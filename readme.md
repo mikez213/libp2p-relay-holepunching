@@ -27,7 +27,7 @@ There is a transient issue where an unknown persistent stays between sessions ca
 ```sh
 > docker-compose down && docker system prune --force && docker-compose up --build --force-recreate
 
-``
+```
 
 
 ### Protobuf Generation
