@@ -17,6 +17,7 @@ import (
 	routing "github.com/libp2p/go-libp2p/core/routing"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
+	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 
 	"github.com/libp2p/go-libp2p/p2p/host/autorelay"
 
@@ -77,7 +78,7 @@ func init() {
 		cmn.BootstrapPeerIDs = append(cmn.BootstrapPeerIDs, pid)
 	}
 
-	logging.SetAllLoggers(logging.LevelWarn)
+	// logging.SetAllLoggers(logging.LevelWarn)
 	logging.SetAllLoggers(logging.LevelDebug)
 
 	// logging.SetLogLevel("dht", "error") // get rid of  network size estimator track peers: expected bucket size number of peers
@@ -201,6 +202,8 @@ func createHost(ctx context.Context, nodeOpt libp2p.Option, relayInfo *peer.Addr
 		addrs := []string{
 			"/ip4/0.0.0.0/tcp/0",
 			"/ip6/::/tcp/0",
+			"/ip4/0.0.0.0/udp/0/quic", // enable QUIC
+			"/ip6/::/udp/0/quic",
 		}
 		listenAddrs := make([]multiaddr.Multiaddr, 0, len(addrs))
 
@@ -235,7 +238,8 @@ func createHost(ctx context.Context, nodeOpt libp2p.Option, relayInfo *peer.Addr
 		libp2p.EnableAutoRelayWithStaticRelays([]peer.AddrInfo{*relayInfo}, autorelay.WithMetricsTracer(mt)),
 		libp2p.NATPortMap(),
 		libp2p.EnableAutoNATv2(),
-		// libp2p.ForceReachabilityPrivate(),
+		// libp2p.EnableAutoNATService(),
+		libp2p.ForceReachabilityPrivate(),
 		libp2p.EnableNATService(),
 		libp2p.EnableHolePunching(),
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
@@ -353,7 +357,7 @@ func connectToPeers(ctx context.Context, host host.Host, relayAddresses []peer.A
 
 func manualStream(ctx context.Context, host host.Host, p peer.AddrInfo, relayAddrInfo peer.AddrInfo) {
 	for i := 0; i < 5; i++ {
-
+		log.Infof("THIS IS MANUAL TEST STREAM")
 		stream, err := host.NewStream(ctx, p.ID, protocol.ID(rend))
 		log.Infof("attempting to open stream to peer %s with ID %s", p.ID, protocol.ID(rend))
 
@@ -457,12 +461,20 @@ func main() {
 	// }
 
 	host, kademliaDHT := createHost(ctx, nodeOpt, relayInfo)
+	host.Network().Notify(&network.NotifyBundle{
+		ConnectedF: func(n network.Network, conn network.Conn) {
+			log.Infof("network We have Connected to %s", conn.RemotePeer())
+		},
+		DisconnectedF: func(n network.Network, conn network.Conn) {
+			log.Warnf("network We have Disconnected to %s", conn.RemotePeer())
+		},
+	})
 
 	// rend := "/ping"
 	// rend := "/ipfs/id/1.0.0"
-	// identify.ActivationThresh = 1
+	identify.ActivationThresh = 1
 	// rend := identify.ID
-	// host.SetStreamHandler(protocol.ID(rend), handleStream)
+	host.SetStreamHandler(protocol.ID(rend), handleStream)
 	// rend := "/ipfs/ping/1.0.0"
 	// rend := ping.ID
 
@@ -522,7 +534,11 @@ func main() {
 				}
 				log.Infof("Pinging peer: %s", peerID)
 				// go func(pid peer.ID) {
-				log.Info("mass sending protocols to %s", peerID)
+				log.Infof("mass sending protocols to %s", peerID)
+				// if host.Network().Connectedness(peerID) != network.Connected {
+				log.Infof("Connected level of %s is %+v", peerID, host.Network().Connectedness(peerID))
+				// continue
+				// }
 				pingprotocol.Ping(peerID)
 				pingprotocol.Status(peerID, projectID, devID, apiKey)
 				pingprotocol.Info(peerID, hostID)
